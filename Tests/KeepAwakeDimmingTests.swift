@@ -89,5 +89,46 @@ enum KeepAwakeDimmingTests {
         let nothingToRecover = C.reset()
         nothingToRecover.recoverDimmedDisplayIfNeeded()
         expect(C.LidDisplayDimmer.written.isEmpty, "launch recovery does nothing when no brightness was saved")
+
+        // A restore that briefly finds no panel — right as the lid opens —
+        // keeps the saved level instead of clearing it on a merely attempted
+        // write, and a queued retry completes it once the panel is back.
+        let retrying = armed()
+        C.BrightnessService.lid = true
+        C.DimmingObserver.callback?()
+        C.drain()
+        C.LidDisplayDimmer.writeSucceeds = false
+        C.BrightnessService.lid = false
+        C.DimmingObserver.callback?()
+        C.drain()
+        expect(C.LidDisplayDimmer.written == [0] && retrying.savedDisplayBrightness == 0.6
+               && C.UserDefaults.standard.doubles[C.DefaultsKey.dimmedDisplaySavedBrightness] == 0.6,
+               "a restore that finds no panel yet keeps the saved level and its marker instead of clearing them")
+        C.LidDisplayDimmer.writeSucceeds = true
+        C.DispatchQueue.main.advance()
+        expect(C.LidDisplayDimmer.written == [0, 0.6] && retrying.savedDisplayBrightness == nil,
+               "the queued retry restores it once the panel answers, with no further lid event needed")
+
+        // Exhausting every retry while the option is switched off keeps the
+        // lid observer armed instead of tearing it down, so a later real
+        // lid-open event still gets a chance to finish the restore.
+        let exhausted = armed()
+        C.BrightnessService.lid = true
+        C.DimmingObserver.callback?()
+        C.drain()
+        C.LidDisplayDimmer.writeSucceeds = false
+        exhausted.dimScreenOnLidClose = false
+        for _ in 0..<8 { C.DispatchQueue.main.advance() }
+        expect(C.LidDisplayDimmer.written == [0] && exhausted.savedDisplayBrightness == 0.6
+               && C.UserDefaults.standard.doubles[C.DefaultsKey.dimmedDisplaySavedBrightness] == 0.6
+               && C.DimmingObserver.destroyedPorts == 0,
+               "exhausting the retries after the option is switched off still owes the restore and keeps watching the lid")
+        C.LidDisplayDimmer.writeSucceeds = true
+        C.BrightnessService.lid = false
+        C.DimmingObserver.callback?()
+        C.drain()
+        expect(C.LidDisplayDimmer.written == [0, 0.6] && exhausted.savedDisplayBrightness == nil
+               && C.DimmingObserver.destroyedPorts == 1,
+               "the lid actually opening finishes the owed restore and only then releases the observer")
     }
 }

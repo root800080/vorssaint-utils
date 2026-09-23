@@ -28,8 +28,11 @@ enum LidDisplayDimmer {
         return Double(value)
     }
 
-    static func setBrightness(_ value: Double) {
-        guard let id = builtInDisplayID(), let setBrightness = BrightnessBridge.setBrightness else { return }
-        _ = setBrightness(id, Float(value))
+    /// True only when the panel was found in the online list and the write
+    /// itself reported success — never assumed from having merely asked.
+    @discardableResult
+    static func setBrightness(_ value: Double) -> Bool {
+        guard let id = builtInDisplayID(), let setBrightness = BrightnessBridge.setBrightness else { return false }
+        return setBrightness(id, Float(value)) == 0
     }
 }

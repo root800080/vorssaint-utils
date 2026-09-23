@@ -755,6 +755,7 @@ def main():
         "    private func syncLidDimmingObserver(",
         "    private func lidStateMayHaveChangedForDimming(",
         "    private func applyDimmingAction(",
+        "    private func attemptDisplayRestore(",
     ]
     write("KeepAwakeLidSleep.swift", "import Foundation\nimport os\n\nextension KeepAwakeLidSleepContract {\n"
           # The extracted dimming bodies unwrap `Unmanaged<KeepAwakeManager>`

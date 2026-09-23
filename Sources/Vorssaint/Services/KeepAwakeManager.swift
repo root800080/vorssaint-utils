@@ -930,7 +930,12 @@ final class KeepAwakeManager: ObservableObject {
     private func recoverDimmedDisplayIfNeeded() {
         guard let saved = UserDefaults.standard.object(forKey: DefaultsKey.dimmedDisplaySavedBrightness) as? Double
         else { return }
-        applyDimmingAction(LidDimmingSupport.restoring(saved: saved))
+        // Set before attempting, not just on failure: if the write does not
+        // report success until later, `syncLidDimmingObserver` still has to
+        // see this as owed right away to arm the lid observer for a retry.
+        savedDisplayBrightness = saved
+        applyDimmingAction(.restore(saved))
+        syncLidDimmingObserver()
     }
 
     // MARK: - Closed-lid screen dimming
@@ -940,15 +945,18 @@ final class KeepAwakeManager: ObservableObject {
     /// polling and is already how `BrightnessService` watches the lid for
     /// its own deferred-restoration case; this registers its own interest
     /// independently since the two features dim different things for
-    /// different reasons.
+    /// different reasons. A restore still owed keeps the observer armed past
+    /// the mode ending, the same way `BrightnessService`'s own deferred
+    /// display restoration outlives whatever asked for it.
     private func syncLidDimmingObserver() {
-        guard clamshellActive, dimScreenOnLidClose else {
+        let armed = clamshellActive && dimScreenOnLidClose
+        if !armed { applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness)) }
+        guard armed || savedDisplayBrightness != nil else {
             if lidDimmingNotification != 0 { IOObjectRelease(lidDimmingNotification) }
             lidDimmingNotification = 0
             if let lidDimmingNotificationPort { IONotificationPortDestroy(lidDimmingNotificationPort) }
             lidDimmingNotificationPort = nil
             lidClosedForDimming = nil
-            applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness))
             return
         }
         guard lidDimmingNotificationPort == nil else { return }
@@ -977,12 +985,14 @@ final class KeepAwakeManager: ObservableObject {
     /// callback already queued when the feature was torn down: it lands here
     /// as a no-op instead of acting on a mode that already ended.
     private func lidStateMayHaveChangedForDimming() {
-        guard clamshellActive, dimScreenOnLidClose else { return }
+        guard (clamshellActive && dimScreenOnLidClose) || savedDisplayBrightness != nil else { return }
         let closed = BrightnessService.lidClosed() ?? false
         guard closed != lidClosedForDimming else { return }
         lidClosedForDimming = closed
         if closed {
-            applyDimmingAction(LidDimmingSupport.lidClosed(currentBrightness: LidDisplayDimmer.currentBrightness()))
+            if clamshellActive, dimScreenOnLidClose {
+                applyDimmingAction(LidDimmingSupport.lidClosed(currentBrightness: LidDisplayDimmer.currentBrightness()))
+            }
         } else {
             applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness))
         }
@@ -996,13 +1006,34 @@ final class KeepAwakeManager: ObservableObject {
             LidDisplayDimmer.setBrightness(0)
             Self.log.log("lid closed: dimmed the built-in display, saved \(save)")
         case .restore(let value):
-            savedDisplayBrightness = nil
-            UserDefaults.standard.removeObject(forKey: DefaultsKey.dimmedDisplaySavedBrightness)
-            LidDisplayDimmer.setBrightness(value)
-            Self.log.log("restoring the built-in display to \(value)")
+            attemptDisplayRestore(value)
         case .none:
             break
         }
+    }
+
+    /// Keeps the saved level and its recovery marker until a write actually
+    /// reports success — clearing them on a merely attempted write, the same
+    /// way `BrightnessService`'s deferred restoration never drops a display
+    /// it could not yet bring back, would leave the panel at zero forever if
+    /// it is not in the online list yet (right as the lid opens) or the
+    /// write itself fails. A few retries a half second apart cover that
+    /// startup race; if the panel is still not back after those, whatever
+    /// keeps `syncLidDimmingObserver` armed for an owed restore is what
+    /// finds the next real lid-open event to try again.
+    private func attemptDisplayRestore(_ value: Double, attemptsLeft: Int = 6) {
+        guard LidDisplayDimmer.setBrightness(value) else {
+            Self.log.log("restoring the built-in display to \(value) found no panel yet, \(attemptsLeft - 1) retries left")
+            guard attemptsLeft > 1 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.attemptDisplayRestore(value, attemptsLeft: attemptsLeft - 1)
+            }
+            return
+        }
+        savedDisplayBrightness = nil
+        UserDefaults.standard.removeObject(forKey: DefaultsKey.dimmedDisplaySavedBrightness)
+        Self.log.log("restored the built-in display to \(value)")
+        syncLidDimmingObserver()
     }
 
     // MARK: - Battery protection

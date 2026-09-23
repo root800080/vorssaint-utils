@@ -45,8 +45,16 @@ enum KeepAwakeLidSleepContract {
     enum LidDisplayDimmer {
         static var reading: Double?
         static var written: [Double] = []
+        /// True by default; set false to model the panel not being back in
+        /// the online list yet, or the write itself failing.
+        static var writeSucceeds = true
         static func currentBrightness() -> Double? { reading }
-        static func setBrightness(_ value: Double) { written.append(value) }
+        @discardableResult
+        static func setBrightness(_ value: Double) -> Bool {
+            guard writeSucceeds else { return false }
+            written.append(value)
+            return true
+        }
     }
     static let kIOMainPortDefault = 0
     static let kIOReturnSuccess = 0
@@ -99,7 +107,7 @@ enum KeepAwakeLidSleepContract {
     static func reset() -> Service {
         port = 1; results = [0]; calls = 0; closes = 0
         policy = true; assertions = []; BrightnessService.lid = true
-        LidDisplayDimmer.reading = nil; LidDisplayDimmer.written = []
+        LidDisplayDimmer.reading = nil; LidDisplayDimmer.written = []; LidDisplayDimmer.writeSucceeds = true
         DimmingObserver.registrations = 0; DimmingObserver.releasedObjects = 0
         DimmingObserver.destroyedPorts = 0; DimmingObserver.callback = nil
         for queue in [DispatchQueue.main, DispatchQueue.background, DispatchQueue.native] {
