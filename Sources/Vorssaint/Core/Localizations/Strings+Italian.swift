@@ -162,8 +162,6 @@ extension Strings {
         clamshellExplanation: "“Continua con il coperchio chiuso” disattiva completamente lo stop mentre “Mantieni attivo” è attivo e viene ripristinato automaticamente al termine della sessione o alla chiusura dell’app. È preferibile usarlo collegato all’alimentazione.",
         dimScreenOnLidCloseTitle: "Oscura lo schermo del tutto",
         dimScreenOnLidCloseCaption: "Oscura lo schermo quando il coperchio si chiude e ripristina la luminosità alla riapertura.",
-        dimKeyboardOnLidCloseTitle: "Oscura la retroilluminazione della tastiera del tutto",
-        dimKeyboardOnLidCloseCaption: "Oscura la retroilluminazione della tastiera quando il coperchio si chiude e la ripristina alla riapertura.",
 
         scrollSection: "Scorrimento",
         invertMouseScroll: "Inverti lo scorrimento del mouse",

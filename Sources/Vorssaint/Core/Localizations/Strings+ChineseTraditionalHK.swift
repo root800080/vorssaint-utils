@@ -162,8 +162,6 @@ extension Strings {
         clamshellExplanation: "「合上機蓋後繼續運作」會在「保持喚醒」啟用期間完全停用睡眠，並在時段結束或 App 結束時自動恢復。建議在連接電源時使用。",
         dimScreenOnLidCloseTitle: "將螢幕完全調暗",
         dimScreenOnLidCloseCaption: "合上機蓋時調暗畫面，打開時恢復亮度。",
-        dimKeyboardOnLidCloseTitle: "將鍵盤背光完全調暗",
-        dimKeyboardOnLidCloseCaption: "合上機蓋時調暗鍵盤背光，打開時恢復。",
 
         scrollSection: "捲動",
         invertMouseScroll: "反轉滑鼠捲動",
