@@ -76,7 +76,7 @@ final class KeepAwakeManager: ObservableObject {
             UserDefaults.standard.set(dimKeyboardOnLidClose, forKey: DefaultsKey.dimKeyboardOnLidClose)
             if !dimKeyboardOnLidClose, let level = savedKeyboardBrightness {
                 savedKeyboardBrightness = nil
-                _ = BrightnessService.sharedKeyboardLightBridge?.setBrightness(Float(level))
+                LidDimmingSupport.setKeyboardBrightness(level)
             }
             syncLidDimmingObserver()
         }
@@ -993,10 +993,10 @@ final class KeepAwakeManager: ObservableObject {
                 Self.log.log("lid closed: captured \(self.savedDisplayBrightnesses?.count ?? 0) display level(s) and dimmed")
             }
             if dimKeyboardOnLidClose {
-                let level = BrightnessService.sharedKeyboardLightBridge?.brightness()
-                savedKeyboardBrightness = level.map(Double.init)
-                let ok = BrightnessService.sharedKeyboardLightBridge?.setBrightness(0)
-                Self.log.log("lid closed: captured keyboard level=\(level.map { "\($0)" } ?? "nil") dimmed=\(String(describing: ok))")
+                let level = LidDimmingSupport.captureKeyboardBrightness()
+                savedKeyboardBrightness = level
+                LidDimmingSupport.setKeyboardBrightness(0)
+                Self.log.log("lid closed: captured keyboard level=\(level.map { "\($0)" } ?? "nil") and dimmed")
             }
         } else {
             restoreLidDimmingIfNeeded()
@@ -1006,9 +1006,8 @@ final class KeepAwakeManager: ObservableObject {
     private func restoreLidDimmingIfNeeded() {
         if let level = savedKeyboardBrightness {
             savedKeyboardBrightness = nil
-            let ok = BrightnessService.sharedKeyboardLightBridge?
-                .setBrightnessHoldingIdleSuspension(Float(level))
-            Self.log.log("lid opened: restoring keyboard to \(level) ok=\(String(describing: ok))")
+            LidDimmingSupport.setKeyboardBrightness(level)
+            Self.log.log("lid opened: restoring keyboard to \(level)")
         }
         if let saved = savedDisplayBrightnesses {
             savedDisplayBrightnesses = nil
