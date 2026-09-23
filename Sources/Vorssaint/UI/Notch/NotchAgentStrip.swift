@@ -9,6 +9,7 @@ import SwiftUI
 struct NotchAgentStrip: View {
     @ObservedObject var service: NotchService
     @ObservedObject private var usage = AgentUsageService.shared
+    @ObservedObject private var waitWatcher = AgentWaitWatcher.shared
     @ObservedObject private var l10n = L10n.shared
     @AppStorage(DefaultsKey.notchAgentsReadout) private var readout = NotchAgentReadout.elapsed.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
@@ -39,7 +40,10 @@ struct NotchAgentStrip: View {
             Button { service.open(.agents) } label: {
                 HStack(spacing: 1) {
                     if geometry.compactActivityWingWidth >= 28 {
-                        ForEach(working) { NotchAgentGlyph(provider: $0, size: iconSize) }
+                        ForEach(working) { provider in
+                            NotchAgentGlyph(provider: provider, size: iconSize,
+                                            waiting: provider == .claude && !waitWatcher.waiting.isEmpty)
+                        }
                     }
                 }
                 .padding(.leading, iconInset)
@@ -97,11 +101,20 @@ struct NotchAgentStrip: View {
 struct NotchAgentRestingWing: View {
     let leading: Bool
     @ObservedObject private var usage = AgentUsageService.shared
+    @ObservedObject private var waitWatcher = AgentWaitWatcher.shared
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
+
+    private var waiting: Bool { leading && !waitWatcher.waiting.isEmpty }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             content(now: context.date)
+                .overlay(alignment: .topTrailing) {
+                    if waiting {
+                        Circle().fill(.orange).frame(width: 5, height: 5)
+                            .offset(x: 2, y: -2)
+                    }
+                }
         }
     }
 
