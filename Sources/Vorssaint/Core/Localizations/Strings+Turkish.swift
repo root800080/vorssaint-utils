@@ -160,6 +160,10 @@ extension Strings {
         configuring: "Yapılandırılıyor…",
         sudoersFailed: "Kapak kapalı modu açılamadı. Tekrar dene.",
         clamshellExplanation: "“Kapak kapalıyken devam et”, “Uyanık tut” etkinken uykuyu tamamen kapatır ve oturum bittiğinde veya uygulama kapandığında otomatik geri alınır. Güce bağlıyken kullanman önerilir.",
+        dimScreenOnLidCloseTitle: "Ekranı tamamen karart",
+        dimScreenOnLidCloseCaption: "Kapak kapandığında ekranı karartır, açıldığında parlaklığı geri getirir.",
+        dimKeyboardOnLidCloseTitle: "Klavye arka ışığını tamamen karart",
+        dimKeyboardOnLidCloseCaption: "Kapak kapandığında klavye arka ışığını karartır, açıldığında geri getirir.",
 
         scrollSection: "Kaydırma",
         invertMouseScroll: "Fare kaydırmasını ters çevir",

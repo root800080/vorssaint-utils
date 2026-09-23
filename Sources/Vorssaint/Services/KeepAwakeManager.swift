@@ -5,12 +5,15 @@ import AppKit
 import Combine
 import IOKit.ps
 import IOKit.pwr_mgt
+import os
 
 /// Core of the energy feature: manages "keep awake" sessions through IOKit power
 /// assertions, the closed-lid mode (pmset disablesleep, administrator password)
 /// and the battery protection watchdog.
 final class KeepAwakeManager: ObservableObject {
     static let shared = KeepAwakeManager()
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "vorssaint",
+                                    category: "keep-awake")
 
     enum EndReason { case manual, timer, battery, quit }
     enum SessionTrigger { case manual, automation }
@@ -20,7 +23,12 @@ final class KeepAwakeManager: ObservableObject {
     @Published private(set) var sessionTrigger: SessionTrigger?
     @Published private(set) var runningAppBundleIDs: [String] = []
     @Published private(set) var activeAutomationConditions = Set<KeepAwakeAutomationCondition>()
-    @Published private(set) var clamshellActive = false
+    @Published private(set) var clamshellActive = false {
+        didSet {
+            guard clamshellActive != oldValue else { return }
+            syncLidDimmingObserver()
+        }
+    }
     @Published private(set) var passwordlessClamshell = false
     @Published private(set) var clamshellSetupInProgress = false
     @Published private(set) var clamshellSetupFailed = false
@@ -43,6 +51,34 @@ final class KeepAwakeManager: ObservableObject {
                 clamshellSetupInProgress = false
                 clamshellSetupID = nil
             }
+        }
+    }
+
+    /// Persistent preference: dims every display known to `LidDimmingSupport`
+    /// to zero while the closed-lid mode is actually in effect, restoring the
+    /// captured brightness when the lid opens again.
+    @Published var dimScreenOnLidClose: Bool {
+        didSet {
+            guard dimScreenOnLidClose != oldValue else { return }
+            UserDefaults.standard.set(dimScreenOnLidClose, forKey: DefaultsKey.dimScreenOnLidClose)
+            if !dimScreenOnLidClose, let saved = savedDisplayBrightnesses {
+                savedDisplayBrightnesses = nil
+                LidDimmingSupport.restore(saved)
+            }
+            syncLidDimmingObserver()
+        }
+    }
+
+    /// Same idea for the keyboard backlight.
+    @Published var dimKeyboardOnLidClose: Bool {
+        didSet {
+            guard dimKeyboardOnLidClose != oldValue else { return }
+            UserDefaults.standard.set(dimKeyboardOnLidClose, forKey: DefaultsKey.dimKeyboardOnLidClose)
+            if !dimKeyboardOnLidClose, let level = savedKeyboardBrightness {
+                savedKeyboardBrightness = nil
+                _ = BrightnessService.sharedKeyboardLightBridge?.setBrightness(Float(level))
+            }
+            syncLidDimmingObserver()
         }
     }
 
@@ -74,6 +110,11 @@ final class KeepAwakeManager: ObservableObject {
     private var clamshellSetupID: UUID?
     private var lidSleepGeneration = 0
     private var lidSleepAttemptsRemaining = 0
+    private var lidDimmingNotificationPort: IONotificationPortRef?
+    private var lidDimmingNotification: io_object_t = 0
+    private var lidClosedForDimming: Bool?
+    private var savedDisplayBrightnesses: [(CGDirectDisplayID, Double)]?
+    private var savedKeyboardBrightness: Double?
     private static let screenLockNotification = Notification.Name("com.apple.screenIsLocked")
     private static let screenUnlockNotification = Notification.Name("com.apple.screenIsUnlocked")
     /// Guards the closed-lid setup against an infinite retry loop: if `pmset
@@ -86,6 +127,8 @@ final class KeepAwakeManager: ObservableObject {
 
     private init() {
         clamshellPreferred = UserDefaults.standard.bool(forKey: DefaultsKey.clamshellPreferred)
+        dimScreenOnLidClose = UserDefaults.standard.bool(forKey: DefaultsKey.dimScreenOnLidClose)
+        dimKeyboardOnLidClose = UserDefaults.standard.bool(forKey: DefaultsKey.dimKeyboardOnLidClose)
         refreshPasswordlessStatus()
         // Every settings write announces itself, including the ones made from
         // inside this class, so a burst folds into a single reply on the next
@@ -895,6 +938,83 @@ final class KeepAwakeManager: ObservableObject {
         recoveryCompleted = true
         completion?()
         syncWithPreferences()
+    }
+
+    // MARK: - Closed-lid dimming (screen and keyboard backlight)
+
+    /// Runs whenever the closed-lid mode or either dimming preference
+    /// changes. An `IOPMrootDomain` general-interest notification is cheaper
+    /// than polling and is already how `BrightnessService` watches the lid
+    /// for its own deferred-restoration case; this registers its own
+    /// interest independently since the two services dim different things
+    /// for different reasons.
+    private func syncLidDimmingObserver() {
+        let wanted = clamshellActive && (dimScreenOnLidClose || dimKeyboardOnLidClose)
+        guard wanted else {
+            if lidDimmingNotification != 0 { IOObjectRelease(lidDimmingNotification) }
+            lidDimmingNotification = 0
+            if let lidDimmingNotificationPort { IONotificationPortDestroy(lidDimmingNotificationPort) }
+            lidDimmingNotificationPort = nil
+            lidClosedForDimming = nil
+            restoreLidDimmingIfNeeded()
+            return
+        }
+        guard lidDimmingNotificationPort == nil else { return }
+        let root = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+        guard root != 0 else { return }
+        defer { IOObjectRelease(root) }
+        guard let port = IONotificationPortCreate(kIOMainPortDefault) else { return }
+        let result = IOServiceAddInterestNotification(
+            port, root, kIOGeneralInterest, { context, _, _, _ in
+                guard let context else { return }
+                let manager = Unmanaged<KeepAwakeManager>.fromOpaque(context).takeUnretainedValue()
+                DispatchQueue.main.async { [weak manager] in manager?.lidStateMayHaveChangedForDimming() }
+            }, Unmanaged.passUnretained(self).toOpaque(), &lidDimmingNotification)
+        guard result == KERN_SUCCESS else {
+            IONotificationPortDestroy(port)
+            return
+        }
+        lidDimmingNotificationPort = port
+        IONotificationPortSetDispatchQueue(port, DispatchQueue.main)
+        lidClosedForDimming = BrightnessService.lidClosed()
+    }
+
+    /// General interest fires on far more than lid transitions, so the
+    /// current state is compared against what was last seen rather than
+    /// assumed from the notification itself.
+    private func lidStateMayHaveChangedForDimming() {
+        let closed = BrightnessService.lidClosed() ?? false
+        guard closed != lidClosedForDimming else { return }
+        lidClosedForDimming = closed
+        if closed {
+            if dimScreenOnLidClose {
+                savedDisplayBrightnesses = LidDimmingSupport.captureBrightnesses()
+                LidDimmingSupport.dimToZero()
+                Self.log.log("lid closed: captured \(self.savedDisplayBrightnesses?.count ?? 0) display level(s) and dimmed")
+            }
+            if dimKeyboardOnLidClose {
+                let level = BrightnessService.sharedKeyboardLightBridge?.brightness()
+                savedKeyboardBrightness = level.map(Double.init)
+                let ok = BrightnessService.sharedKeyboardLightBridge?.setBrightness(0)
+                Self.log.log("lid closed: captured keyboard level=\(level.map { "\($0)" } ?? "nil") dimmed=\(String(describing: ok))")
+            }
+        } else {
+            restoreLidDimmingIfNeeded()
+        }
+    }
+
+    private func restoreLidDimmingIfNeeded() {
+        if let level = savedKeyboardBrightness {
+            savedKeyboardBrightness = nil
+            let ok = BrightnessService.sharedKeyboardLightBridge?
+                .setBrightnessHoldingIdleSuspension(Float(level))
+            Self.log.log("lid opened: restoring keyboard to \(level) ok=\(String(describing: ok))")
+        }
+        if let saved = savedDisplayBrightnesses {
+            savedDisplayBrightnesses = nil
+            LidDimmingSupport.restore(saved)
+            Self.log.log("lid opened: restored \(saved.count) display level(s)")
+        }
     }
 
     // MARK: - Battery protection

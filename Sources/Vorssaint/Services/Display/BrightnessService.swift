@@ -50,7 +50,10 @@ struct BrightnessDisplay: Identifiable, Equatable {
 /// coalesce to the newest value per display.
 final class BrightnessService: ObservableObject {
     static let shared = BrightnessService()
-    private static let sharedKeyboardLightBridge = KeyboardLightBridge()
+    /// Shared instance for anything that only needs a raw read/write of the
+    /// keyboard backlight (see `LidDimmingSupport`), without the panel state,
+    /// hotkeys or notch notice this class also drives.
+    static let sharedKeyboardLightBridge = KeyboardLightBridge()
     static var keyboardLightIsSupported: Bool { sharedKeyboardLightBridge != nil }
 
     /// Field diagnosis channel: external display trouble is invisible from
@@ -2204,7 +2207,11 @@ final class BrightnessService: ObservableObject {
 /// through dlopen/dlsym and the feature degrades gracefully wherever one is
 /// missing: no system brightness symbol means no built-in slider, no I2C
 /// symbols mean no external sliders, never a crash.
-private enum BrightnessBridge {
+/// Also used by `LidDimmingSupport` to write the built-in panel and Apple
+/// external displays directly by ID while the lid is closed, when they are
+/// off `CGGetActiveDisplayList` and this class's own display rows do not
+/// cover them.
+enum BrightnessBridge {
     typealias GetBrightnessFn = @convention(c) (UInt32, UnsafeMutablePointer<Float>) -> Int32
     typealias SetBrightnessFn = @convention(c) (UInt32, Float) -> Int32
     typealias CreateInfoDictionaryFn = @convention(c) (UInt32) -> Unmanaged<CFDictionary>?
@@ -2245,7 +2252,7 @@ private enum BrightnessBridge {
 /// Keyboard backlighting has no public setter. Resolve the system client and
 /// its methods at runtime so unsupported hardware or a future removal simply
 /// hides the control instead of affecting launch.
-private final class KeyboardLightBridge {
+final class KeyboardLightBridge {
     private typealias CopyIDsFn = @convention(c) (NSObject, Selector) -> Unmanaged<AnyObject>
     private typealias IsBuiltInFn = @convention(c) (NSObject, Selector, UInt64) -> ObjCBool
     private typealias GetBrightnessFn = @convention(c) (NSObject, Selector, UInt64) -> Float
@@ -2306,6 +2313,22 @@ private final class KeyboardLightBridge {
         defer { _ = suspendIdleDimming(client, suspendSelector, false, keyboardID) }
         return setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
                                   true, keyboardID).boolValue
+    }
+
+    /// Like `setBrightness`, but for a caller with no real key press of its
+    /// own to keep the system's idle timer from immediately reclaiming the
+    /// value: releasing the suspension right away, as `setBrightness` does
+    /// for a hotkey or slider a person is actively driving, lets an idle
+    /// timer that already expired while the value was away (the lid was
+    /// closed) dim the keyboard right back down before anyone sees it lit.
+    func setBrightnessHoldingIdleSuspension(_ value: Float, for duration: TimeInterval = 3) -> Bool {
+        _ = suspendIdleDimming(client, suspendSelector, true, keyboardID)
+        let ok = setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
+                                    true, keyboardID).boolValue
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [self] in
+            _ = suspendIdleDimming(client, suspendSelector, false, keyboardID)
+        }
+        return ok
     }
 
     private static func implementation<Function>(
