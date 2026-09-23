@@ -18,6 +18,7 @@ struct NotchAgentsSettingsControls: View {
     @AppStorage(DefaultsKey.notchAgentsFinishAlert) private var finishAlert = true
     @AppStorage(DefaultsKey.notchAgentsFinishMinimum) private var finishMinimum = NotchAgentSupport.defaultFinishMinimum
     @AppStorage(DefaultsKey.notchAgentsLimitAlert) private var limitAlert = true
+    @AppStorage(DefaultsKey.notchAgentsWaitingAlert) private var waitingAlert = false
     @AppStorage(DefaultsKey.notchAgentsLimitThreshold) private var limitThreshold = NotchAgentSupport.defaultLimitThreshold
     @AppStorage(DefaultsKey.notchAgentsDailyBudget) private var dailyBudget = 0.0
     @AppStorage(DefaultsKey.notchAgentsPriceUpdates) private var priceUpdates = true
@@ -116,6 +117,9 @@ struct NotchAgentsSettingsControls: View {
                 }
                 .padding(.leading, settingsRowTextInset)
             }
+            if claude {
+                switchRow("bubble.left.and.exclamationmark.bubble.right", text.waitingAlert, isOn: $waitingAlert)
+            }
             SettingsRow(symbol: "dollarsign.circle", title: text.budget) {
                 Picker(text.budget, selection: $dailyBudget) {
                     ForEach(NotchAgentSupport.budgets, id: \.self) { value in
@@ -147,6 +151,9 @@ struct NotchAgentsSettingsControls: View {
             if claude { findClaudeApp() }
         }
         .onChange(of: claude) { _, on in if on { findClaudeApp() } }
+        .onChange(of: [String(claude), String(waitingAlert)]) { _, _ in
+            AgentWaitWatcher.shared.syncWithPreferences()
+        }
         // Cards and agents set the page's height, and the live reading the
         // closed island's width, which the island follows.
         .onChange(of: [cardOrder, hiddenCards, String(claude), String(codex),
