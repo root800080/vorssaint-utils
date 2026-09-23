@@ -38,6 +38,14 @@ enum NotchAgentLimitDisplay: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Which allowance the `.limit` readout shows beside the camera.
+enum NotchAgentLimitWindow: String, CaseIterable, Identifiable {
+    /// Whichever window is closest to running out.
+    case auto
+    case session, weekly
+    var id: String { rawValue }
+}
+
 struct NotchAgentTile: Identifiable, Equatable {
     let card: NotchAgentCard
     /// The account a limits card belongs to.
@@ -96,6 +104,10 @@ enum NotchAgentSupport {
         NotchAgentLimitDisplay(rawValue: defaults.string(forKey: DefaultsKey.notchAgentsLimitDisplay) ?? "") ?? .remaining
     }
 
+    static func limitWindow(in defaults: UserDefaults = .standard) -> NotchAgentLimitWindow {
+        NotchAgentLimitWindow(rawValue: defaults.string(forKey: DefaultsKey.notchAgentsLimitWindow) ?? "") ?? .auto
+    }
+
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)
     }
@@ -141,7 +153,7 @@ enum NotchAgentSupport {
     /// What the strip shows beside the camera while agents work: the reading
     /// the person chose, or the time elapsed while that one is unknown.
     static func stripReading(_ snapshot: AgentUsageSnapshot, readout: NotchAgentReadout,
-                             display: NotchAgentLimitDisplay, now: Date) -> String {
+                             display: NotchAgentLimitDisplay, window: NotchAgentLimitWindow, now: Date) -> String {
         let live = snapshot.live
         let elapsed = AgentFormat.clock(now.timeIntervalSince(live.map(\.started).min() ?? now))
         switch readout {
@@ -154,9 +166,19 @@ enum NotchAgentSupport {
         case .cost:
             return AgentFormat.cost(live.reduce(0) { $0 + $1.cost })
         case .limit:
-            guard let provider = AgentProvider.allCases.first(where: { provider in live.contains { $0.provider == provider } }),
-                  let window = AgentLimitSupport.binding(snapshot.limits[provider], now: now) else { return elapsed }
-            return AgentFormat.percent(display == .used ? window.usedFraction : window.remainingFraction)
+            guard let provider = AgentProvider.allCases.first(where: { provider in live.contains { $0.provider == provider } })
+            else { return elapsed }
+            let selected: AgentLimitWindow?
+            switch window {
+            case .auto:
+                selected = AgentLimitSupport.binding(snapshot.limits[provider], now: now)
+            case .session, .weekly:
+                let kind: AgentLimitWindow.Kind = window == .session ? .session : .weekly
+                selected = snapshot.limits[provider]?.windows.first { $0.kind == kind }
+                    .map { AgentLimitSupport.current($0, at: now) }
+            }
+            guard let selected else { return elapsed }
+            return AgentFormat.percent(display == .used ? selected.usedFraction : selected.remainingFraction)
         }
     }
 
