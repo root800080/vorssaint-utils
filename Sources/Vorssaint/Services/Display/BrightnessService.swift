@@ -2306,28 +2306,28 @@ final class KeyboardLightBridge {
         getBrightness(client, getSelector, keyboardID)
     }
 
-    func setBrightness(_ value: Float) -> Bool {
+    /// Like `brightness()`, but with idle dimming suspended around the read.
+    /// The plain read reports zero once the system's own inactivity timer has
+    /// already turned the light off, indistinguishable from a light this app
+    /// dimmed itself or one the person turned off; suspending first reads the
+    /// level the light is actually set to, the same way every write already
+    /// brackets itself so a commit does not fight that same timer.
+    func brightnessIgnoringIdleDimming() -> Float {
+        _ = suspendIdleDimming(client, suspendSelector, true, keyboardID)
+        defer { _ = suspendIdleDimming(client, suspendSelector, false, keyboardID) }
+        return getBrightness(client, getSelector, keyboardID)
+    }
+
+    /// `commit` false writes the light without moving the keyboard's own
+    /// saved brightness or its automatic-light curve — for a caller that only
+    /// wants the light at a level for now, not to change what either
+    /// remembers, unlike the quick toggle and hotkeys, which do want that and
+    /// keep the default of `true`.
+    func setBrightness(_ value: Float, commit: Bool = true) -> Bool {
         _ = suspendIdleDimming(client, suspendSelector, true, keyboardID)
         defer { _ = suspendIdleDimming(client, suspendSelector, false, keyboardID) }
         return setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
-                                  true, keyboardID).boolValue
-    }
-
-    /// Like `setBrightness`, but for a restore with no real key press behind
-    /// it to keep the system's own idle-dimming timer from reclaiming the
-    /// value: the suspension is held well past the write instead of released
-    /// the instant it returns. A first attempt held it 3 seconds and did not
-    /// survive on real hardware; this is untested at 8s and may still need a
-    /// different fix (unrelated hardware wake timing, not idle dimming) if it
-    /// doesn't hold either.
-    func setBrightnessHoldingIdleSuspension(_ value: Float, for duration: TimeInterval = 8) -> Bool {
-        _ = suspendIdleDimming(client, suspendSelector, true, keyboardID)
-        let ok = setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
-                                    true, keyboardID).boolValue
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [self] in
-            _ = suspendIdleDimming(client, suspendSelector, false, keyboardID)
-        }
-        return ok
+                                  commit, keyboardID).boolValue
     }
 
     private static func implementation<Function>(

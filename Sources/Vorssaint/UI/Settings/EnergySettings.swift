@@ -250,10 +250,12 @@ struct EnergySettings: View {
                         Toggle(l10n.s.dimScreenOnLidCloseTitle, isOn: $awake.dimScreenOnLidClose)
                             .labelsHidden()
                     }
-                    SettingsRow(symbol: "keyboard", title: l10n.s.dimKeyboardOnLidCloseTitle,
-                                caption: l10n.s.dimKeyboardOnLidCloseCaption) {
-                        Toggle(l10n.s.dimKeyboardOnLidCloseTitle, isOn: $awake.dimKeyboardOnLidClose)
-                            .labelsHidden()
+                    if BrightnessService.keyboardLightIsSupported {
+                        SettingsRow(symbol: "keyboard", title: l10n.s.dimKeyboardOnLidCloseTitle,
+                                    caption: l10n.s.dimKeyboardOnLidCloseCaption) {
+                            Toggle(l10n.s.dimKeyboardOnLidCloseTitle, isOn: $awake.dimKeyboardOnLidClose)
+                                .labelsHidden()
+                        }
                     }
                 }
                 .padding(.leading, settingsRowTextInset)

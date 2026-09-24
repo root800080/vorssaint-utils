@@ -7,22 +7,26 @@ import Foundation
 /// same `KeyboardLightBridge` (CoreBrightness) the app's own keyboard-light
 /// toggle and hotkeys already use, rather than a second, separate path.
 enum LidKeyboardDimmer {
+    /// Reads with idle dimming suspended, so a light the system's own
+    /// inactivity timer already turned off does not read the same as one
+    /// this app dimmed itself or one the person turned off — either of which
+    /// means there is nothing here for a lid close to dim.
     static func currentBrightness() -> Double? {
-        guard let level = BrightnessService.sharedKeyboardLightBridge?.brightness(), level.isFinite
+        guard let level = BrightnessService.sharedKeyboardLightBridge?.brightnessIgnoringIdleDimming(),
+              level.isFinite
         else { return nil }
         return Double(level)
     }
 
+    /// Never commits: a lid cycle should not move the keyboard's own saved
+    /// brightness or its automatic-light curve, the way the quick toggle and
+    /// hotkeys are meant to.
     static func dimToZero() {
-        _ = BrightnessService.sharedKeyboardLightBridge?.setBrightness(0)
+        _ = BrightnessService.sharedKeyboardLightBridge?.setBrightness(0, commit: false)
     }
 
-    /// Holds the shared bridge's idle-dimming suspension well past the write,
-    /// since a restore fired by the lid opening has no real key press behind
-    /// it to keep an already-expired idle timer from dimming it right back
-    /// down.
     @discardableResult
     static func restore(_ value: Double) -> Bool {
-        BrightnessService.sharedKeyboardLightBridge?.setBrightnessHoldingIdleSuspension(Float(value)) ?? false
+        BrightnessService.sharedKeyboardLightBridge?.setBrightness(Float(value), commit: false) ?? false
     }
 }
