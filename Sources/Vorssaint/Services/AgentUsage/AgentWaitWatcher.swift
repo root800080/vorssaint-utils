@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Vorssaint
 
+import Combine
 import Darwin
 import Foundation
 
@@ -15,6 +16,9 @@ final class AgentWaitWatcher: ObservableObject {
     static let shared = AgentWaitWatcher()
 
     @Published private(set) var waiting: [AgentWaitingSession] = []
+    /// A session that just started waiting, once per transition, for a
+    /// visible notice rather than only the quiet badge.
+    let newlyWaiting = PassthroughSubject<AgentWaitingSession, Never>()
 
     private static let root = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: ".claude/sessions", directoryHint: .isDirectory)
@@ -67,7 +71,11 @@ final class AgentWaitWatcher: ObservableObject {
         let sorted = AgentWaitSupport.waitingSessions(statuses) { kill($0, 0) == 0 }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.waiting != sorted else { return }
+            let previousIDs = Set(self.waiting.map(\.id))
             self.waiting = sorted
+            for session in sorted where !previousIDs.contains(session.id) {
+                self.newlyWaiting.send(session)
+            }
         }
     }
 }

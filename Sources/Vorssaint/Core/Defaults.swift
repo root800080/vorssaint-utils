@@ -755,6 +755,7 @@ enum DefaultsKey {
     static let notchAgentsPeriod = "notchAgentsPeriod"
     static let notchAgentsLimitDisplay = "notchAgentsLimitDisplay"
     static let notchAgentsLimitWindow = "notchAgentsLimitWindow"
+    static let notchAgentsLimitWindowLabel = "notchAgentsLimitWindowLabel"
     static let notchAgentsLiveActivity = "notchAgentsLiveActivity"
     static let notchAgentsReadout = "notchAgentsReadout"
     static let notchAgentsFinishAlert = "notchAgentsFinishAlert"
@@ -1240,6 +1241,7 @@ enum Defaults {
         DefaultsKey.notchAgentsPeriod: AgentPeriod.today.rawValue,
         DefaultsKey.notchAgentsLimitDisplay: NotchAgentLimitDisplay.remaining.rawValue,
         DefaultsKey.notchAgentsLimitWindow: NotchAgentLimitWindow.auto.rawValue,
+        DefaultsKey.notchAgentsLimitWindowLabel: false,
         DefaultsKey.notchAgentsLiveActivity: true,
         DefaultsKey.notchAgentsReadout: NotchAgentReadout.elapsed.rawValue,
         DefaultsKey.notchAgentsFinishAlert: true,

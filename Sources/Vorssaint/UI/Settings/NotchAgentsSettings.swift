@@ -14,6 +14,7 @@ struct NotchAgentsSettingsControls: View {
     @AppStorage(DefaultsKey.notchAgentsHiddenCards) private var hiddenCards = ""
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var limitDisplay = NotchAgentLimitDisplay.remaining.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitWindow) private var limitWindow = NotchAgentLimitWindow.auto.rawValue
+    @AppStorage(DefaultsKey.notchAgentsLimitWindowLabel) private var limitWindowLabel = false
     @AppStorage(DefaultsKey.notchAgentsLiveActivity) private var liveActivity = true
     @AppStorage(DefaultsKey.notchAgentsReadout) private var readout = NotchAgentReadout.elapsed.rawValue
     @AppStorage(DefaultsKey.notchAgentsFinishAlert) private var finishAlert = true
@@ -88,17 +89,20 @@ struct NotchAgentsSettingsControls: View {
                 if readout == NotchAgentReadout.limit.rawValue {
                     SettingsRow(symbol: "gauge.with.dots.needle.33percent", title: text.readoutLimit) {
                         Picker(text.readoutLimit, selection: $limitWindow) {
-                            Text(FeatureStrings.notch(l10n.language).automatic).tag(NotchAgentLimitWindow.auto.rawValue)
+                            Text(text.closestToLimit).tag(NotchAgentLimitWindow.auto.rawValue)
                             Text(text.session).tag(NotchAgentLimitWindow.session.rawValue)
                             Text(text.weekly).tag(NotchAgentLimitWindow.weekly.rawValue)
                         }
                         .pickerStyle(.menu).labelsHidden().fixedSize()
                     }
                     .padding(.leading, settingsRowTextInset)
+                    switchRow("s.square", text.showWindowLetter, isOn: $limitWindowLabel)
+                        .padding(.leading, settingsRowTextInset)
                 }
                 NotchAgentStripSample(readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
                                       display: NotchAgentLimitDisplay(rawValue: limitDisplay) ?? .remaining,
                                       window: NotchAgentLimitWindow(rawValue: limitWindow) ?? .auto,
+                                      showsLabel: limitWindowLabel,
                                       provider: claude || !codex ? .claude : .codex)
                     .padding(.leading, settingsRowTextInset)
             }
@@ -286,6 +290,7 @@ private struct NotchAgentStripSample: View {
     let readout: NotchAgentReadout
     let display: NotchAgentLimitDisplay
     let window: NotchAgentLimitWindow
+    let showsLabel: Bool
     let provider: AgentProvider
     @ObservedObject private var usage = AgentUsageService.shared
     private static let camera: CGFloat = 64
@@ -320,7 +325,8 @@ private struct NotchAgentStripSample: View {
                                               tokens: AgentTokens(input: 1_180_000, cacheWrite: 0, cacheRead: 0, output: 20_000),
                                               cost: 4.56)]
         }
-        return NotchAgentSupport.stripReading(snapshot, readout: readout, display: display, window: window, now: now)
+        return NotchAgentSupport.stripReading(snapshot, readout: readout, display: display, window: window,
+                                              showsLimitWindowLabel: showsLabel, now: now)
     }
 }
 

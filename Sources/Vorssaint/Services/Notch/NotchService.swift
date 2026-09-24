@@ -196,7 +196,8 @@ final class NotchService: ObservableObject {
         let size = NotchAgentSupport.stripTextSize(height: provisional.compactActivityContentHeight)
         let shape = NotchAgentSupport.readingShape(NotchAgentSupport.stripReading(
             AgentUsageService.shared.snapshot, readout: NotchAgentSupport.readout(),
-            display: NotchAgentSupport.limitDisplay(), window: NotchAgentSupport.limitWindow(), now: Date()))
+            display: NotchAgentSupport.limitDisplay(), window: NotchAgentSupport.limitWindow(),
+            showsLimitWindowLabel: NotchAgentSupport.showsLimitWindowLabel(), now: Date()))
         let width = (shape as NSString).size(withAttributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: size, weight: .medium)
         ]).width
@@ -1912,6 +1913,9 @@ final class NotchService: ObservableObject {
             AgentUsageService.shared.events.receive(on: DispatchQueue.main)
                 .sink { [weak self] in self?.showAgentEvent($0) }
                 .store(in: &subscriptions)
+            AgentWaitWatcher.shared.newlyWaiting.receive(on: DispatchQueue.main)
+                .sink { [weak self] in self?.showAgentWaitingNotice($0) }
+                .store(in: &subscriptions)
         }
         stopPower()
         if NotchSupport.routes(.volume) {
@@ -1969,6 +1973,14 @@ final class NotchService: ObservableObject {
             show(NotchNotice(event: .agents, title: text.budgetTitle, detail: AgentFormat.cost(spent),
                              symbol: "dollarsign.circle.fill"))
         }
+    }
+
+    private func showAgentWaitingNotice(_ session: AgentWaitingSession) {
+        let text = FeatureStrings.notchAgents(L10n.shared.language)
+        // The session name has no length bound, so it sits in detail, away
+        // from the camera; title, right against the camera, stays fixed.
+        show(NotchNotice(event: .agents, title: text.waitingAlert, detail: session.name,
+                         symbol: AgentProvider.claude.symbol, agent: .claude))
     }
 
     func showCurrentVolume() {

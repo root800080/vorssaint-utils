@@ -108,6 +108,10 @@ enum NotchAgentSupport {
         NotchAgentLimitWindow(rawValue: defaults.string(forKey: DefaultsKey.notchAgentsLimitWindow) ?? "") ?? .auto
     }
 
+    static func showsLimitWindowLabel(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: DefaultsKey.notchAgentsLimitWindowLabel)
+    }
+
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)
     }
@@ -153,7 +157,8 @@ enum NotchAgentSupport {
     /// What the strip shows beside the camera while agents work: the reading
     /// the person chose, or the time elapsed while that one is unknown.
     static func stripReading(_ snapshot: AgentUsageSnapshot, readout: NotchAgentReadout,
-                             display: NotchAgentLimitDisplay, window: NotchAgentLimitWindow, now: Date) -> String {
+                             display: NotchAgentLimitDisplay, window: NotchAgentLimitWindow,
+                             showsLimitWindowLabel: Bool = false, now: Date) -> String {
         let live = snapshot.live
         let elapsed = AgentFormat.clock(now.timeIntervalSince(live.map(\.started).min() ?? now))
         switch readout {
@@ -178,7 +183,17 @@ enum NotchAgentSupport {
                     .map { AgentLimitSupport.current($0, at: now) }
             }
             guard let selected else { return elapsed }
-            return AgentFormat.percent(display == .used ? selected.usedFraction : selected.remainingFraction)
+            let percent = AgentFormat.percent(display == .used ? selected.usedFraction : selected.remainingFraction)
+            guard showsLimitWindowLabel else { return percent }
+            // The letter names which window this actually is, regardless of
+            // whether it got there by a fixed choice or by auto picking the
+            // one closest to its cap; a window this app cannot name at all
+            // (Codex's "other" bucket) shows no letter rather than a wrong one.
+            switch selected.kind {
+            case .session: return "S " + percent
+            case .weekly: return "W " + percent
+            case .other: return percent
+            }
         }
     }
 

@@ -14,6 +14,7 @@ struct NotchAgentStrip: View {
     @AppStorage(DefaultsKey.notchAgentsReadout) private var readout = NotchAgentReadout.elapsed.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitWindow) private var limitWindow = NotchAgentLimitWindow.auto.rawValue
+    @AppStorage(DefaultsKey.notchAgentsLimitWindowLabel) private var limitWindowLabel = false
 
     private var geometry: NotchGeometry { service.compactActivityGeometry }
     /// Height the strip can give away once both edges keep their gap.
@@ -94,7 +95,8 @@ struct NotchAgentStrip: View {
     private func reading(at now: Date) -> String {
         NotchAgentSupport.stripReading(usage.snapshot, readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
                                        display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining,
-                                       window: NotchAgentLimitWindow(rawValue: limitWindow) ?? .auto, now: now)
+                                       window: NotchAgentLimitWindow(rawValue: limitWindow) ?? .auto,
+                                       showsLimitWindowLabel: limitWindowLabel, now: now)
     }
 }
 
@@ -112,9 +114,12 @@ struct NotchAgentRestingWing: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             content(now: context.date)
                 .overlay(alignment: .topTrailing) {
+                    // No outward offset: the icon this sits on is only
+                    // 10-11pt itself, and the pill around it clips tightly
+                    // to its measured content, so a badge pushed past the
+                    // corner was being cut off instead of shown.
                     if waiting {
-                        Circle().fill(.orange).frame(width: 5, height: 5)
-                            .offset(x: 2, y: -2)
+                        Circle().fill(.orange).frame(width: 6, height: 6)
                     }
                 }
         }

@@ -691,6 +691,13 @@ enum NotchAgentTests {
                         && NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, window: .weekly, now: now)
                         == AgentFormat.percent(0.21),
                      "a fixed window reads that window specifically, falling back to the time when this account has none")
+        suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, window: .weekly,
+                                                     showsLimitWindowLabel: true, now: now)
+                        == "W " + AgentFormat.percent(0.21)
+                        && NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, window: .auto,
+                                                          showsLimitWindowLabel: false, now: now)
+                        == AgentFormat.percent(0.21),
+                     "the window letter only shows once the toggle for it is on")
         suite.expect(NotchAgentSupport.readingShape("12:34") == NotchAgentSupport.readingShape("59:59")
                         && NotchAgentSupport.readingShape("9:59") != NotchAgentSupport.readingShape("10:00")
                         && NotchAgentSupport.readingShape("$4,56") == "$0,00",
