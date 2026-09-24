@@ -752,10 +752,13 @@ def main():
         "    private var clamshellNeedsRestore:",
         "    private func finishClamshellRestore(",
         "    private func recoverDimmedDisplayIfNeeded(",
+        "    private func recoverDimmedKeyboardIfNeeded(",
         "    private func syncLidDimmingObserver(",
         "    private func lidStateMayHaveChangedForDimming(",
         "    private func applyDimmingAction(",
         "    private func attemptDisplayRestore(",
+        "    private func applyKeyboardDimmingAction(",
+        "    private func attemptKeyboardRestore(",
     ]
     write("KeepAwakeLidSleep.swift", "import Foundation\nimport os\n\nextension KeepAwakeLidSleepContract {\n"
           # The extracted dimming bodies unwrap `Unmanaged<KeepAwakeManager>`
@@ -775,12 +778,13 @@ def main():
           + "var activeAutomationConditions = Set<KeepAwakeAutomationCondition>()\n"
           + "var onSessionEnded: ((EndReason) -> Void)?\n"
           + "var lidDimmingNotificationPort: IONotificationPortRef?\nvar lidDimmingNotification: io_object_t = 0\n"
-          + "var lidClosedForDimming: Bool?\nvar savedDisplayBrightness: Double?\n"
+          + "var lidClosedForDimming: Bool?\nvar savedDisplayBrightness: Double?\nvar savedKeyboardBrightness: Double?\n"
           + declaration(keep_awake, "    @Published private(set) var clamshellActive = false {")
                 .replace("@Published private(set) ", "", 1)
           + declaration(keep_awake, "    @Published var clamshellPreferred:").replace("@Published ", "", 1)
           + declaration(keep_awake, "    @Published var dimScreenOnLidClose: Bool {").replace("@Published ", "", 1)
-          + "init() { clamshellPreferred = true; dimScreenOnLidClose = false }\n"
+          + declaration(keep_awake, "    @Published var dimKeyboardOnLidClose: Bool {").replace("@Published ", "", 1)
+          + "init() { clamshellPreferred = true; dimScreenOnLidClose = false; dimKeyboardOnLidClose = false }\n"
           + "func syncScreenLockMonitoring() {}\nfunc applyAssertions() { assertionsHeld = true }\n"
           + "func releaseAssertions() { assertionsHeld = false }\nfunc scheduleEnd(at date: Date) {}\n"
           + "func startBatteryWatch() {}\nfunc stopBatteryWatch() {}\nfunc syncMouseJiggleTimer() {}\n"

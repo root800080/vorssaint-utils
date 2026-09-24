@@ -50,7 +50,9 @@ struct BrightnessDisplay: Identifiable, Equatable {
 /// coalesce to the newest value per display.
 final class BrightnessService: ObservableObject {
     static let shared = BrightnessService()
-    private static let sharedKeyboardLightBridge = KeyboardLightBridge()
+    /// Also used by `LidKeyboardDimmer` for closed-lid keyboard dimming,
+    /// without the panel state, hotkeys or notch notice this class drives.
+    static let sharedKeyboardLightBridge = KeyboardLightBridge()
     static var keyboardLightIsSupported: Bool { sharedKeyboardLightBridge != nil }
 
     /// Field diagnosis channel: external display trouble is invisible from
@@ -2248,7 +2250,7 @@ enum BrightnessBridge {
 /// Keyboard backlighting has no public setter. Resolve the system client and
 /// its methods at runtime so unsupported hardware or a future removal simply
 /// hides the control instead of affecting launch.
-private final class KeyboardLightBridge {
+final class KeyboardLightBridge {
     private typealias CopyIDsFn = @convention(c) (NSObject, Selector) -> Unmanaged<AnyObject>
     private typealias IsBuiltInFn = @convention(c) (NSObject, Selector, UInt64) -> ObjCBool
     private typealias GetBrightnessFn = @convention(c) (NSObject, Selector, UInt64) -> Float
@@ -2309,6 +2311,23 @@ private final class KeyboardLightBridge {
         defer { _ = suspendIdleDimming(client, suspendSelector, false, keyboardID) }
         return setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
                                   true, keyboardID).boolValue
+    }
+
+    /// Like `setBrightness`, but for a restore with no real key press behind
+    /// it to keep the system's own idle-dimming timer from reclaiming the
+    /// value: the suspension is held well past the write instead of released
+    /// the instant it returns. A first attempt held it 3 seconds and did not
+    /// survive on real hardware; this is untested at 8s and may still need a
+    /// different fix (unrelated hardware wake timing, not idle dimming) if it
+    /// doesn't hold either.
+    func setBrightnessHoldingIdleSuspension(_ value: Float, for duration: TimeInterval = 8) -> Bool {
+        _ = suspendIdleDimming(client, suspendSelector, true, keyboardID)
+        let ok = setBrightnessValue(client, setSelector, min(max(value, 0), 1), 350,
+                                    true, keyboardID).boolValue
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [self] in
+            _ = suspendIdleDimming(client, suspendSelector, false, keyboardID)
+        }
+        return ok
     }
 
     private static func implementation<Function>(

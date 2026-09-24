@@ -56,6 +56,25 @@ enum KeepAwakeLidSleepContract {
             return true
         }
     }
+    /// Distinguishes the dim write (immediate) from the restore write (the
+    /// real bridge holds its idle-dimming suspension open past this call),
+    /// since the two paths are the actual thing under review here.
+    enum LidKeyboardDimmer {
+        static var reading: Double?
+        static var dimmed: [Double] = []
+        static var restored: [Double] = []
+        /// True by default; set false to model the bridge not being ready
+        /// yet, or the write itself failing.
+        static var writeSucceeds = true
+        static func currentBrightness() -> Double? { reading }
+        static func dimToZero() { dimmed.append(0) }
+        @discardableResult
+        static func restore(_ value: Double) -> Bool {
+            guard writeSucceeds else { return false }
+            restored.append(value)
+            return true
+        }
+    }
     static let kIOMainPortDefault = 0
     static let kIOReturnSuccess = 0
     static let KERN_SUCCESS: Int32 = 0
@@ -108,6 +127,8 @@ enum KeepAwakeLidSleepContract {
         port = 1; results = [0]; calls = 0; closes = 0
         policy = true; assertions = []; BrightnessService.lid = true
         LidDisplayDimmer.reading = nil; LidDisplayDimmer.written = []; LidDisplayDimmer.writeSucceeds = true
+        LidKeyboardDimmer.reading = nil; LidKeyboardDimmer.dimmed = []; LidKeyboardDimmer.restored = []
+        LidKeyboardDimmer.writeSucceeds = true
         DimmingObserver.registrations = 0; DimmingObserver.releasedObjects = 0
         DimmingObserver.destroyedPorts = 0; DimmingObserver.callback = nil
         for queue in [DispatchQueue.main, DispatchQueue.background, DispatchQueue.native] {

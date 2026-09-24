@@ -66,6 +66,18 @@ final class KeepAwakeManager: ObservableObject {
         }
     }
 
+    /// Same idea for the keyboard backlight.
+    @Published var dimKeyboardOnLidClose: Bool {
+        didSet {
+            guard dimKeyboardOnLidClose != oldValue else { return }
+            UserDefaults.standard.set(dimKeyboardOnLidClose, forKey: DefaultsKey.dimKeyboardOnLidClose)
+            if !dimKeyboardOnLidClose {
+                applyKeyboardDimmingAction(LidDimmingSupport.restoring(saved: savedKeyboardBrightness))
+            }
+            syncLidDimmingObserver()
+        }
+    }
+
     var onSessionEnded: ((EndReason) -> Void)?
 
     private var systemAssertion = IOPMAssertionID(0)
@@ -98,6 +110,7 @@ final class KeepAwakeManager: ObservableObject {
     private var lidDimmingNotification: io_object_t = 0
     private var lidClosedForDimming: Bool?
     private var savedDisplayBrightness: Double?
+    private var savedKeyboardBrightness: Double?
     private static let screenLockNotification = Notification.Name("com.apple.screenIsLocked")
     private static let screenUnlockNotification = Notification.Name("com.apple.screenIsUnlocked")
     /// Guards the closed-lid setup against an infinite retry loop: if `pmset
@@ -111,6 +124,7 @@ final class KeepAwakeManager: ObservableObject {
     private init() {
         clamshellPreferred = UserDefaults.standard.bool(forKey: DefaultsKey.clamshellPreferred)
         dimScreenOnLidClose = UserDefaults.standard.bool(forKey: DefaultsKey.dimScreenOnLidClose)
+        dimKeyboardOnLidClose = UserDefaults.standard.bool(forKey: DefaultsKey.dimKeyboardOnLidClose)
         refreshPasswordlessStatus()
         // Every settings write announces itself, including the ones made from
         // inside this class, so a burst folds into a single reply on the next
@@ -873,6 +887,7 @@ final class KeepAwakeManager: ObservableObject {
     func recoverIfNeeded(completion: (() -> Void)? = nil) {
         guard !isTerminating else { return }
         recoverDimmedDisplayIfNeeded()
+        recoverDimmedKeyboardIfNeeded()
         guard UserDefaults.standard.bool(forKey: DefaultsKey.sleepDisabledFlag) else {
             finishRecovery(completion)
             return
@@ -938,20 +953,29 @@ final class KeepAwakeManager: ObservableObject {
         syncLidDimmingObserver()
     }
 
-    // MARK: - Closed-lid screen dimming
+    /// Same recovery as `recoverDimmedDisplayIfNeeded`, for the keyboard.
+    private func recoverDimmedKeyboardIfNeeded() {
+        guard let saved = UserDefaults.standard.object(forKey: DefaultsKey.dimmedKeyboardSavedBrightness) as? Double
+        else { return }
+        applyKeyboardDimmingAction(LidDimmingSupport.restoring(saved: saved))
+    }
 
-    /// Runs whenever the closed-lid mode or the dimming preference changes.
-    /// An `IOPMrootDomain` general-interest notification is cheaper than
-    /// polling and is already how `BrightnessService` watches the lid for
-    /// its own deferred-restoration case; this registers its own interest
-    /// independently since the two features dim different things for
-    /// different reasons. A restore still owed keeps the observer armed past
-    /// the mode ending, the same way `BrightnessService`'s own deferred
-    /// display restoration outlives whatever asked for it.
+    // MARK: - Closed-lid screen and keyboard dimming
+
+    /// Runs whenever the closed-lid mode or either dimming preference
+    /// changes. An `IOPMrootDomain` general-interest notification is cheaper
+    /// than polling and is already how `BrightnessService` watches the lid
+    /// for its own deferred-restoration case; this registers its own
+    /// interest independently since the two features dim different things
+    /// for different reasons. A restore still owed on either one keeps the
+    /// observer armed past the mode ending, the same way `BrightnessService`'s
+    /// own deferred display restoration outlives whatever asked for it.
     private func syncLidDimmingObserver() {
-        let armed = clamshellActive && dimScreenOnLidClose
-        if !armed { applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness)) }
-        guard armed || savedDisplayBrightness != nil else {
+        let screenArmed = clamshellActive && dimScreenOnLidClose
+        let keyboardArmed = clamshellActive && dimKeyboardOnLidClose
+        if !screenArmed { applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness)) }
+        if !keyboardArmed { applyKeyboardDimmingAction(LidDimmingSupport.restoring(saved: savedKeyboardBrightness)) }
+        guard screenArmed || savedDisplayBrightness != nil || keyboardArmed || savedKeyboardBrightness != nil else {
             if lidDimmingNotification != 0 { IOObjectRelease(lidDimmingNotification) }
             lidDimmingNotification = 0
             if let lidDimmingNotificationPort { IONotificationPortDestroy(lidDimmingNotificationPort) }
@@ -985,7 +1009,8 @@ final class KeepAwakeManager: ObservableObject {
     /// callback already queued when the feature was torn down: it lands here
     /// as a no-op instead of acting on a mode that already ended.
     private func lidStateMayHaveChangedForDimming() {
-        guard (clamshellActive && dimScreenOnLidClose) || savedDisplayBrightness != nil else { return }
+        guard (clamshellActive && (dimScreenOnLidClose || dimKeyboardOnLidClose))
+                || savedDisplayBrightness != nil || savedKeyboardBrightness != nil else { return }
         let closed = BrightnessService.lidClosed() ?? false
         guard closed != lidClosedForDimming else { return }
         lidClosedForDimming = closed
@@ -993,8 +1018,12 @@ final class KeepAwakeManager: ObservableObject {
             if clamshellActive, dimScreenOnLidClose {
                 applyDimmingAction(LidDimmingSupport.lidClosed(currentBrightness: LidDisplayDimmer.currentBrightness()))
             }
+            if clamshellActive, dimKeyboardOnLidClose {
+                applyKeyboardDimmingAction(LidDimmingSupport.lidClosed(currentBrightness: LidKeyboardDimmer.currentBrightness()))
+            }
         } else {
             applyDimmingAction(LidDimmingSupport.restoring(saved: savedDisplayBrightness))
+            applyKeyboardDimmingAction(LidDimmingSupport.restoring(saved: savedKeyboardBrightness))
         }
     }
 
@@ -1033,6 +1062,37 @@ final class KeepAwakeManager: ObservableObject {
         savedDisplayBrightness = nil
         UserDefaults.standard.removeObject(forKey: DefaultsKey.dimmedDisplaySavedBrightness)
         Self.log.log("restored the built-in display to \(value)")
+        syncLidDimmingObserver()
+    }
+
+    private func applyKeyboardDimmingAction(_ action: LidDimmingSupport.Action) {
+        switch action {
+        case .dim(let save):
+            savedKeyboardBrightness = save
+            UserDefaults.standard.set(save, forKey: DefaultsKey.dimmedKeyboardSavedBrightness)
+            LidKeyboardDimmer.dimToZero()
+            Self.log.log("lid closed: dimmed the keyboard backlight, saved \(save)")
+        case .restore(let value):
+            attemptKeyboardRestore(value)
+        case .none:
+            break
+        }
+    }
+
+    /// Same owed-until-success handling as `attemptDisplayRestore`, for the
+    /// keyboard.
+    private func attemptKeyboardRestore(_ value: Double, attemptsLeft: Int = 6) {
+        guard LidKeyboardDimmer.restore(value) else {
+            Self.log.log("restoring the keyboard backlight to \(value) found no bridge yet, \(attemptsLeft - 1) retries left")
+            guard attemptsLeft > 1 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.attemptKeyboardRestore(value, attemptsLeft: attemptsLeft - 1)
+            }
+            return
+        }
+        savedKeyboardBrightness = nil
+        UserDefaults.standard.removeObject(forKey: DefaultsKey.dimmedKeyboardSavedBrightness)
+        Self.log.log("restored the keyboard backlight to \(value)")
         syncLidDimmingObserver()
     }
 

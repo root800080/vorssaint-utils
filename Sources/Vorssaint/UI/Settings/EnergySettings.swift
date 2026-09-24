@@ -244,10 +244,17 @@ struct EnergySettings: View {
                     .padding(.leading, settingsRowTextInset)
             }
             if awake.clamshellPreferred {
-                SettingsRow(symbol: "sun.min", title: l10n.s.dimScreenOnLidCloseTitle,
-                            caption: l10n.s.dimScreenOnLidCloseCaption) {
-                    Toggle(l10n.s.dimScreenOnLidCloseTitle, isOn: $awake.dimScreenOnLidClose)
-                        .labelsHidden()
+                VStack(alignment: .leading, spacing: 13) {
+                    SettingsRow(symbol: "sun.min", title: l10n.s.dimScreenOnLidCloseTitle,
+                                caption: l10n.s.dimScreenOnLidCloseCaption) {
+                        Toggle(l10n.s.dimScreenOnLidCloseTitle, isOn: $awake.dimScreenOnLidClose)
+                            .labelsHidden()
+                    }
+                    SettingsRow(symbol: "keyboard", title: l10n.s.dimKeyboardOnLidCloseTitle,
+                                caption: l10n.s.dimKeyboardOnLidCloseCaption) {
+                        Toggle(l10n.s.dimKeyboardOnLidCloseTitle, isOn: $awake.dimKeyboardOnLidClose)
+                            .labelsHidden()
+                    }
                 }
                 .padding(.leading, settingsRowTextInset)
             }

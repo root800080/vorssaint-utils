@@ -15,6 +15,8 @@ extension KeepAwakeLidSleepContract {
         static let keepAwakePauseWhenLocked = "pause"
         static let dimScreenOnLidClose = "dimScreen"
         static let dimmedDisplaySavedBrightness = "dimmedDisplaySavedBrightness"
+        static let dimKeyboardOnLidClose = "dimKeyboard"
+        static let dimmedKeyboardSavedBrightness = "dimmedKeyboardSavedBrightness"
     }
     enum UserDefaults {
         static let standard = Store()

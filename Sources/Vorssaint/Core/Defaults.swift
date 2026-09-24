@@ -12,6 +12,7 @@ enum DefaultsKey {
     static let liquidGlassEnabled = "liquidGlassEnabled"  // Liquid Glass visual styling on macOS 26+
     static let clamshellPreferred = "clamshellPreferred"  // apply closed-lid mode to every session
     static let dimScreenOnLidClose = "dimScreenOnLidClose" // dim the built-in display to zero while the lid is closed
+    static let dimKeyboardOnLidClose = "dimKeyboardOnLidClose" // dim the keyboard backlight to zero while the lid is closed
     static let onboardingStep = "onboardingStep"          // resume point if onboarding is interrupted
     static let featuresOnboardingVersion = "featuresOnboardingVersion" // last feature-tour marker handled
     static let lastUpdateIntroVersion = "lastUpdateIntroVersion"
@@ -45,6 +46,7 @@ enum DefaultsKey {
     static let hasOnboarded = "hasOnboarded"
     static let sleepDisabledFlag = "vorssDisabledSleep"   // internal guard for pmset disablesleep
     static let dimmedDisplaySavedBrightness = "vorssDimmedDisplaySavedBrightness" // internal guard for closed-lid screen dimming recovery
+    static let dimmedKeyboardSavedBrightness = "vorssDimmedKeyboardSavedBrightness" // internal guard for closed-lid keyboard dimming recovery
     static let scrollInverterEnabled = "scrollInverterEnabled"
     static let scrollInverterHorizontalEnabled = "scrollInverterHorizontalEnabled"
     static let scrollHorizontalEnabled = "scrollHorizontalEnabled"
@@ -1008,6 +1010,7 @@ enum Defaults {
         DefaultsKey.liquidGlassEnabled: false,
         DefaultsKey.clamshellPreferred: false,
         DefaultsKey.dimScreenOnLidClose: false,
+        DefaultsKey.dimKeyboardOnLidClose: false,
         DefaultsKey.defaultDuration: 0,
         DefaultsKey.batteryLimit: 10,
         DefaultsKey.keepAwakeAutoStart: false,
