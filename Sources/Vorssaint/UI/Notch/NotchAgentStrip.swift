@@ -14,6 +14,7 @@ struct NotchAgentStrip: View {
     @ObservedObject private var l10n = L10n.shared
     @AppStorage(DefaultsKey.notchAgentsReadout) private var readout = NotchAgentReadout.elapsed.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
+    @AppStorage(DefaultsKey.notchAgentsLimitFocus) private var focus = NotchAgentLimitFocus.mostUsed.rawValue
 
     private var live: [AgentLiveSession] { usage.snapshot.live }
     private var working: [AgentProvider] {
@@ -87,7 +88,8 @@ struct NotchAgentStrip: View {
 
     private func reading(at now: Date) -> String {
         NotchAgentSupport.stripReading(usage.snapshot, readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
-                                       display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, now: now)
+                                       display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining,
+                                       focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
     }
 }
 
@@ -108,12 +110,14 @@ struct NotchAgentReadoutTimeline<Content: View>: View {
     }
 }
 
-/// The resting island's wings: the allowance closest to running out, as a
-/// ring and a number, or today's API value when no allowance is known.
+/// The resting island's wings: the chosen allowance, by default the one
+/// closest to running out, as a ring and a number, or today's API value when
+/// no allowance is known.
 struct NotchAgentRestingWing: View {
     let leading: Bool
     @ObservedObject private var usage = AgentUsageService.shared
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
+    @AppStorage(DefaultsKey.notchAgentsLimitFocus) private var focus = NotchAgentLimitFocus.mostUsed.rawValue
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -124,7 +128,8 @@ struct NotchAgentRestingWing: View {
     @ViewBuilder private func content(now: Date) -> some View {
         let snapshot = usage.snapshot
         let candidates = snapshot.limits.compactMap { provider, limits in
-            AgentLimitSupport.binding(limits, now: now).map { (provider: provider, window: $0) }
+            NotchAgentSupport.focusedLimit(limits, focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
+                .map { (provider: provider, window: $0) }
         }
         let focus = candidates.max {
             $0.window.usedPercent != $1.window.usedPercent ? $0.window.usedPercent < $1.window.usedPercent

@@ -43,6 +43,12 @@ enum NotchAgentLimitDisplay: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Which allowance the closed island shows.
+enum NotchAgentLimitFocus: String, CaseIterable, Identifiable {
+    case mostUsed, session, weekly
+    var id: String { rawValue }
+}
+
 struct NotchAgentTile: Identifiable, Equatable {
     let card: NotchAgentCard
     /// The account a limits card belongs to.
@@ -101,6 +107,26 @@ enum NotchAgentSupport {
         NotchAgentLimitDisplay(rawValue: defaults.string(forKey: DefaultsKey.notchAgentsLimitDisplay) ?? "") ?? .remaining
     }
 
+    static func limitFocus(in defaults: UserDefaults = .standard) -> NotchAgentLimitFocus {
+        NotchAgentLimitFocus(rawValue: defaults.string(forKey: DefaultsKey.notchAgentsLimitFocus) ?? "") ?? .mostUsed
+    }
+
+    /// The allowance the closed island shows: the window the person chose,
+    /// or the one closest to running out while the account reports no such
+    /// window. A model's own allowance is never the chosen one.
+    static func focusedLimit(_ limits: AgentLimits?, focus: NotchAgentLimitFocus, now: Date) -> AgentLimitWindow? {
+        let kind: AgentLimitWindow.Kind
+        switch focus {
+        case .mostUsed: return AgentLimitSupport.binding(limits, now: now)
+        case .session: kind = .session
+        case .weekly: kind = .weekly
+        }
+        guard let window = limits?.windows.first(where: { $0.kind == kind && $0.scope == nil }) else {
+            return AgentLimitSupport.binding(limits, now: now)
+        }
+        return AgentLimitSupport.current(window, at: now)
+    }
+
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)
     }
@@ -146,7 +172,8 @@ enum NotchAgentSupport {
     /// What the strip shows beside the camera while agents work: the reading
     /// the person chose, or the time elapsed while that one is unknown.
     static func stripReading(_ snapshot: AgentUsageSnapshot, readout: NotchAgentReadout,
-                             display: NotchAgentLimitDisplay, now: Date) -> String {
+                             display: NotchAgentLimitDisplay, focus: NotchAgentLimitFocus = .mostUsed,
+                             now: Date) -> String {
         let live = snapshot.live
         func elapsed() -> String { AgentFormat.clock(now.timeIntervalSince(live.map(\.started).min() ?? now)) }
         switch readout {
@@ -160,7 +187,7 @@ enum NotchAgentSupport {
             return AgentFormat.cost(live.reduce(0) { $0 + $1.cost })
         case .limit:
             guard let provider = AgentProvider.allCases.first(where: { provider in live.contains { $0.provider == provider } }),
-                  let window = AgentLimitSupport.binding(snapshot.limits[provider], now: now) else { return elapsed() }
+                  let window = focusedLimit(snapshot.limits[provider], focus: focus, now: now) else { return elapsed() }
             return AgentFormat.percent(display == .used ? window.usedFraction : window.remainingFraction)
         }
     }
