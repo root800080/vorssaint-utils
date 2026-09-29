@@ -26,8 +26,10 @@ final class AgentWaitWatcher: ObservableObject {
     private static let roots = [".claude/sessions", ".config/claude/sessions"].map {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: $0, directoryHint: .isDirectory)
     }
+    private static let livenessPoll: TimeInterval = 2
     private let queue = DispatchQueue(label: "com.vorssaint.utils.agentwait", qos: .utility)
     private var watcher: AgentLogWatcher?
+    private var poller: DispatchSourceTimer?
     private var running = false
     /// Bumped on every start/stop so a rescan already in flight when the
     /// watcher is switched off — or off then straight back on — cannot
@@ -54,6 +56,7 @@ final class AgentWaitWatcher: ObservableObject {
         let watcher = self.watcher ?? AgentLogWatcher(queue: queue) { [weak self] _, _ in self?.rescan() }
         self.watcher = watcher
         _ = watcher.start(Self.roots.map(\.path))
+        startPolling()
     }
 
     func stop() {
@@ -61,14 +64,29 @@ final class AgentWaitWatcher: ObservableObject {
         running = false
         generation &+= 1
         watcher?.stop()
+        poller?.cancel()
+        poller = nil
         waitingSince.removeAll()
         if !waiting.isEmpty { waiting = [] }
+    }
+
+    /// A killed process leaves its session file's contents unchanged, so no
+    /// file event ever follows to notice it is gone. This is the only thing
+    /// that clears a dead process out of `waiting` on its own.
+    private func startPolling() {
+        poller?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + Self.livenessPoll, repeating: Self.livenessPoll, leeway: .milliseconds(500))
+        timer.setEventHandler { [weak self] in self?.rescan() }
+        timer.resume()
+        poller = timer
     }
 
     /// Runs on `queue`. Reads every session file fresh each time: the
     /// directories hold one small file per Claude process, never enough of
     /// them to make a cursor worth keeping.
     private func rescan() {
+        let generation = self.generation
         let statuses = Self.roots.flatMap { root -> [AgentWaitSupport.SessionStatus] in
             let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
             return names.filter { $0.hasSuffix(".json") }.compactMap { name in
@@ -86,7 +104,6 @@ final class AgentWaitWatcher: ObservableObject {
             }
         }
         let sorted = AgentWaitSupport.waitingSessions(statuses) { KillProcessService.startTime(for: $0) }
-        let generation = self.generation
         DispatchQueue.main.async { [weak self] in
             guard let self, self.running, self.generation == generation, self.waiting != sorted else { return }
             let newlyWaiting = AgentWaitSupport.newlyWaitingSessions(current: sorted, previous: self.waiting)
@@ -104,12 +121,15 @@ final class AgentWaitWatcher: ObservableObject {
     /// Fires once `AgentWaitSupport.minimumNoticeWait` has passed, and only
     /// sends the notice if the session is both still waiting and still the
     /// same one that started this check (a resolved-then-re-waiting session
-    /// gets its own fresh timer via `rescan`, not this stale one).
+    /// gets its own fresh timer via `rescan`, not this stale one). Checked
+    /// again here rather than trusting the periodic poll alone, since a
+    /// process can die within the poll's own window.
     private func scheduleNoticeCheck(for session: AgentWaitingSession, generation: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + AgentWaitSupport.minimumNoticeWait) { [weak self] in
             guard let self, self.running, self.generation == generation,
                   let since = self.waitingSince[session.id], self.waiting.contains(session),
-                  AgentWaitSupport.waitedLongEnough(since: since, now: Date())
+                  AgentWaitSupport.waitedLongEnough(since: since, now: Date()),
+                  KillProcessService.startTime(for: session.id) != nil
             else { return }
             self.newlyWaiting.send(session)
         }
