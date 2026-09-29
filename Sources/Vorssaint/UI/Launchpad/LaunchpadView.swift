@@ -15,6 +15,7 @@ struct LaunchpadView: View {
     @State private var layout = LaunchpadLayoutStore.stored()
     @State private var openFolder: LaunchpadFolder?
     @State private var folderPage = 0
+    @FocusState private var searchFocused: Bool
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
 
@@ -61,12 +62,13 @@ struct LaunchpadView: View {
                 folderOverlay(openFolder)
             }
         }
-        .onAppear { layout = LaunchpadLayoutStore.stored() }
+        .onAppear { refreshOnShow() }
         .onChange(of: query) { page = 0 }
         .onReceive(LaunchpadService.shared.pageStep) { step in
             guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
             withAnimation(.easeOut(duration: 0.25)) { page = target }
         }
+        .onReceive(LaunchpadService.shared.didShow) { refreshOnShow() }
     }
 
     private var searchField: some View {
@@ -74,6 +76,7 @@ struct LaunchpadView: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField(text.searchPlaceholder, text: $query)
                 .textFieldStyle(.plain)
+                .focused($searchFocused)
         }
         .padding(.horizontal, 14)
         .frame(width: 280, height: 34)
@@ -188,6 +191,16 @@ struct LaunchpadView: View {
         .background(HUDBackdrop(cornerRadius: 14))
         .clipShape(Capsule())
         .padding(.bottom, 16)
+    }
+
+    /// Re-reads the saved layout and focuses search, both of which only
+    /// need to happen once the panel is actually about to be seen.
+    private func refreshOnShow() {
+        layout = LaunchpadLayoutStore.stored()
+        query = ""
+        page = 0
+        openFolder = nil
+        searchFocused = true
     }
 
     private func launch(_ app: LaunchpadApp) {

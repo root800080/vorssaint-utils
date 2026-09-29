@@ -23,6 +23,11 @@ final class LaunchpadService {
     /// A trackpad swipe that crossed the paging threshold; `LaunchpadView`
     /// applies it to its own page index.
     let pageStep = PassthroughSubject<Int, Never>()
+    /// Sent every time the panel is shown. The view is created once and
+    /// reused (`ensurePanel()` caches it), so SwiftUI's own `onAppear` only
+    /// fires on the very first open — this is what refreshes the layout and
+    /// search focus on every open after that.
+    let didShow = PassthroughSubject<Void, Never>()
 
     private let hotkey = QuickToolHotkey(id: 61)
     private var panel: NSPanel?
@@ -58,6 +63,7 @@ final class LaunchpadService {
         panel.orderFrontRegardless()
         panel.makeKey()
         installMonitors()
+        didShow.send()
     }
 
     func hide() {
