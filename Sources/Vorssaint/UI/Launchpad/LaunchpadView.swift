@@ -53,6 +53,15 @@ struct LaunchpadView: View {
         ZStack {
             Color.black.opacity(0.001) // catches clicks on empty background without visibly tinting the desktop
                 .onTapGesture(perform: onDismiss)
+                // A click-and-drag on empty background pages the grid, the
+                // mouse equivalent of the trackpad swipe. minimumDistance
+                // keeps a plain click free to dismiss instead of registering
+                // as a zero-length drag.
+                .gesture(DragGesture(minimumDistance: 20).onEnded { value in
+                    let step = LaunchpadPagingSupport.pageStep(cumulativeX: -value.translation.width)
+                    guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { page = target }
+                })
             VStack(spacing: 24) {
                 searchField
                 if pages.indices.contains(page) {
@@ -256,14 +265,22 @@ struct LaunchpadView: View {
     }
 
     private var pageDots: some View {
-        HStack(spacing: 8) {
+        let dotSize: CGFloat = 7
+        let spacing: CGFloat = 8
+        let rowWidth = CGFloat(pages.count) * dotSize + CGFloat(max(pages.count - 1, 0)) * spacing
+        return HStack(spacing: spacing) {
             ForEach(pages.indices, id: \.self) { index in
                 Circle()
                     .fill(index == page ? Color.white : Color.white.opacity(0.35))
-                    .frame(width: 7, height: 7)
+                    .frame(width: dotSize, height: dotSize)
                     .onTapGesture { page = index }
             }
         }
+        // A drag across the row scrubs through pages the same way dragging
+        // a scrubber does, instead of only jumping to a tap.
+        .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+            page = LaunchpadPagingSupport.scrubbedPage(x: value.location.x, width: rowWidth, pageCount: pages.count)
+        })
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(HUDBackdrop(cornerRadius: 14))
