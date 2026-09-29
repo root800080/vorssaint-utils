@@ -162,7 +162,7 @@ enum NotchAgentSupport {
     /// What the strip shows beside the camera while agents work: the reading
     /// the person chose, or the time elapsed while that one is unknown.
     static func stripReading(_ snapshot: AgentUsageSnapshot, readout: NotchAgentReadout,
-                             display: NotchAgentLimitDisplay, window: NotchAgentLimitWindow,
+                             display: NotchAgentLimitDisplay, window: NotchAgentLimitWindow = .auto,
                              showsLimitWindowLabel: Bool = false, locale: Locale = .autoupdatingCurrent,
                              now: Date) -> String {
         let live = snapshot.live
