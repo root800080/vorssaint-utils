@@ -38,6 +38,7 @@ struct LaunchpadSettings: View {
                     }
             }
         }
+        .formStyle(.grouped)
         .onAppear { LaunchpadService.shared.syncWithPreferences() }
     }
 }
