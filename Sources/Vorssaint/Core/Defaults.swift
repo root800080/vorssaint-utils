@@ -574,6 +574,9 @@ enum DefaultsKey {
     static let scratchpadShortcut = "scratchpadShortcut"
     static let commandBarShortcutEnabled = "commandBarShortcutEnabled"
     static let commandBarShortcut = "commandBarShortcut"
+    static let launchpadShortcutEnabled = "launchpadShortcutEnabled"
+    static let launchpadShortcut = "launchpadShortcut"
+    static let launchpadLayout = "launchpadLayout"          // LaunchpadLayout, JSON Data
     /// Compact mode: an empty field shows nothing but itself. Off by default
     static let commandBarCompactMode = "commandBarCompactMode"
     /// The ASCII layout borrowed while the bar is open, restored on close. Off by default
@@ -1679,6 +1682,9 @@ enum Defaults {
         DefaultsKey.commandBarFileScopes: "",
         DefaultsKey.commandBarFileIgnores: "",
         DefaultsKey.commandBarShortcut: GlobalShortcut.commandBarDefault.storageValue,
+        DefaultsKey.launchpadShortcutEnabled: false,
+        DefaultsKey.launchpadShortcut: GlobalShortcut.launchpadDefault.storageValue,
+        DefaultsKey.launchpadLayout: Data(),
         DefaultsKey.commandBarPositionOffset: "",
         DefaultsKey.commandBarEmojiSkinTone: "",
         DefaultsKey.panelUtilityCommandBar: true,
