@@ -85,6 +85,22 @@ enum LaunchpadLayoutSupportTests {
         suite.expect(LaunchpadLayoutSupport.renamingFolder(LaunchpadLayout(items: [.app("a")]), folderID: UUID(), name: "X").items.map(\.id) == ["a"],
                      "renaming a folder id that isn't in the layout does nothing")
 
+        let finder = LaunchpadApp(id: "/System/Applications/Finder.app", name: "Finder", bundleID: nil, path: "/System/Applications/Finder.app")
+        let terminal = LaunchpadApp(id: "/System/Applications/Utilities/Terminal.app", name: "Terminal", bundleID: nil, path: "/System/Applications/Utilities/Terminal.app")
+        let console = LaunchpadApp(id: "/System/Applications/Utilities/Console.app", name: "Console", bundleID: nil, path: "/System/Applications/Utilities/Console.app")
+        let defaultLayout = LaunchpadLayoutSupport.defaultLayout(for: [terminal, finder, console], utilitiesFolderName: "Utilities")
+        suite.expect(defaultLayout.items.contains(.app(finder.id)), "an app outside the native Utilities subfolder stays loose")
+        if case .folder(let utilities) = defaultLayout.items.first(where: { if case .folder = $0 { return true }; return false }) {
+            suite.expect(utilities.name == "Utilities" && Set(utilities.appIDs) == Set([terminal.id, console.id]),
+                         "two or more apps from the real Utilities subfolder are grouped into one folder by that name")
+        } else {
+            suite.expect(false, "two native utility apps must produce a folder")
+        }
+
+        let singleUtility = LaunchpadLayoutSupport.defaultLayout(for: [finder, terminal], utilitiesFolderName: "Utilities")
+        suite.expect(singleUtility.items == [.app(finder.id), .app(terminal.id)],
+                     "a single native utility app stays loose rather than becoming a one-item folder")
+
         let longName = LaunchpadFolder(id: UUID(), name: String(repeating: "a", count: 80), appIDs: ["x", "y"])
         let sanitizedLongName = LaunchpadLayoutSupport.sanitized(LaunchpadLayout(items: [.folder(longName)]))
         if case .folder(let capped) = sanitizedLongName.items.first {
