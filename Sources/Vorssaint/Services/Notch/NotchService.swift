@@ -663,7 +663,8 @@ final class NotchService: ObservableObject {
                                           hasProgress: download?.fraction != nil, geometry: geometry, language: language)
         case .agents:
             let reading = NotchAgentSupport.stripReading(AgentUsageService.shared.snapshot, readout: NotchAgentSupport.readout(),
-                                                         display: NotchAgentSupport.limitDisplay(), now: Date())
+                                                         display: NotchAgentSupport.limitDisplay(),
+                                                         focus: NotchAgentSupport.limitFocus(), now: Date())
             return layout.agentSurface(reading: reading, working: working, geometry: geometry)
         case .calendar:
             guard let countdown = NotchCalendarService.shared.countdown else { return geometry.restingSize(showsContent: false) }
