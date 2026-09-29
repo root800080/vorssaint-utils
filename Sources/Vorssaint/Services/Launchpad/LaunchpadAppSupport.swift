@@ -82,6 +82,9 @@ enum LaunchpadSelectionSupport {
 /// uses: nothing happens until the swipe has gone far enough one way.
 enum LaunchpadPagingSupport {
     static let swipeThreshold: CGFloat = 80
+    /// How often a drag held over a screen edge advances a page, matching
+    /// the original's own "drag to the edge, wait, it pages" pacing.
+    static let edgePagingInterval: TimeInterval = 0.6
 
     /// -1/+1 once `cumulativeX` crosses the threshold in that direction, 0
     /// otherwise. Scroll's own sign convention is a leftward swipe
