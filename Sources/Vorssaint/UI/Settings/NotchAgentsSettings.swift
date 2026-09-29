@@ -72,6 +72,13 @@ struct NotchAgentsSettingsControls: View {
                 Text(text.remaining).tag(NotchAgentLimitDisplay.remaining.rawValue)
                 Text(text.used).tag(NotchAgentLimitDisplay.used.rawValue)
             }
+            // The resting island shows this allowance whatever the live
+            // reading, and the live reading uses it when it shows a limit.
+            SettingsMenuRow(symbol: "rectangle.topthird.inset.filled", title: text.limitFocus, selection: $limitFocus) {
+                ForEach(NotchAgentLimitFocus.allCases) { focus in
+                    Text(text.limitFocus(focus)).tag(focus.rawValue)
+                }
+            }
 
             Divider()
             Text(text.liveTitle).font(.subheadline.weight(.medium))
@@ -83,15 +90,6 @@ struct NotchAgentsSettingsControls: View {
                     }
                 }
                 .padding(.leading, settingsRowTextInset)
-                if readout == NotchAgentReadout.limit.rawValue {
-                    // Also picks the allowance the resting island shows.
-                    SettingsMenuRow(symbol: "rectangle.topthird.inset.filled", title: text.limitFocus, selection: $limitFocus) {
-                        ForEach(NotchAgentLimitFocus.allCases) { focus in
-                            Text(text.limitFocus(focus)).tag(focus.rawValue)
-                        }
-                    }
-                    .padding(.leading, settingsRowTextInset)
-                }
                 NotchAgentStripSample(readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
                                       display: NotchAgentLimitDisplay(rawValue: limitDisplay) ?? .remaining,
                                       focus: NotchAgentLimitFocus(rawValue: limitFocus) ?? .mostUsed,

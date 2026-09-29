@@ -780,7 +780,7 @@ def main():
                         ("FinishAfter", '                SettingsMenuRow(symbol: "timer"', True),
                         ("LimitAt", '                SettingsMenuRow(symbol: "gauge.with.dots.needle.67percent"', True),
                         ("Budget", '            SettingsMenuRow(symbol: "dollarsign.circle"', False),
-                        ("LimitFocus", '                    SettingsMenuRow(symbol: "rectangle.topthird.inset.filled"', True)])
+                        ("LimitFocus", '            SettingsMenuRow(symbol: "rectangle.topthird.inset.filled"', False)])
           + "}\n")
     media_workspace = "Sources/Vorssaint/UI/Media/MediaWorkspaceView.swift"
     write("MediaWorkspaceLayout.swift", "import AppKit\nimport SwiftUI\nimport UniformTypeIdentifiers\n"
