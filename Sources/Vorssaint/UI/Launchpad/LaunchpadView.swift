@@ -17,6 +17,9 @@ struct LaunchpadView: View {
     @State private var folderPage = 0
     @State private var folderNameDraft = ""
     @State private var selectedIndex: Int?
+    @State private var edgePagingTimer: Timer?
+    @State private var hoveringLeadingEdge = false
+    @State private var hoveringTrailingEdge = false
     @FocusState private var searchFocused: Bool
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
@@ -64,10 +67,21 @@ struct LaunchpadView: View {
                 folderOverlay(openFolder)
                     .transition(.scale(scale: 0.85).combined(with: .opacity))
             }
+            // Dragging an icon to the screen edge pages, just like the
+            // original — held over one of these strips, not just passed
+            // through, since a drag crossing the grid to reach a nearby
+            // page shouldn't trigger it by accident.
+            HStack(spacing: 0) {
+                edgePagingZone(step: -1, isTargeted: $hoveringLeadingEdge)
+                Spacer()
+                edgePagingZone(step: 1, isTargeted: $hoveringTrailingEdge)
+            }
         }
         .onAppear { refreshOnShow() }
         .onChange(of: query) { page = 0; selectedIndex = nil }
         .onChange(of: page) { selectedIndex = nil }
+        .onChange(of: hoveringLeadingEdge) { setEdgePaging(active: hoveringLeadingEdge, step: -1) }
+        .onChange(of: hoveringTrailingEdge) { setEdgePaging(active: hoveringTrailingEdge, step: 1) }
         .onReceive(LaunchpadService.shared.pageStep) { step in
             guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
             withAnimation(.easeOut(duration: 0.25)) { page = target }
@@ -266,6 +280,27 @@ struct LaunchpadView: View {
         openFolder = nil
         selectedIndex = nil
         searchFocused = true
+        edgePagingTimer?.invalidate()
+        edgePagingTimer = nil
+    }
+
+    private func edgePagingZone(step: Int, isTargeted: Binding<Bool>) -> some View {
+        Color.clear
+            .frame(width: 44)
+            .contentShape(Rectangle())
+            .onDrop(of: [.text], isTargeted: isTargeted) { _ in false }
+    }
+
+    private func setEdgePaging(active: Bool, step: Int) {
+        edgePagingTimer?.invalidate()
+        edgePagingTimer = nil
+        guard active else { return }
+        let timer = Timer.scheduledTimer(withTimeInterval: LaunchpadPagingSupport.edgePagingInterval, repeats: true) { _ in
+            guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
+            withAnimation(.easeOut(duration: 0.25)) { page = target }
+        }
+        edgePagingTimer = timer
+        timer.fire()
     }
 
     private func launch(_ app: LaunchpadApp) {
