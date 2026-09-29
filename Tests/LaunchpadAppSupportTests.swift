@@ -58,5 +58,24 @@ enum LaunchpadAppSupportTests {
         suite.expect(folderPages.count == 2 && folderPages[0].count == LaunchpadAppSupport.folderPerPage && folderPages[1].count == 2,
                      "a folder past its own page size splits into its own pages, independent of the outer grid's page size")
         suite.expect(LaunchpadAppSupport.folderPages([]).isEmpty, "an empty folder has no pages")
+
+        suite.expect(LaunchpadSelectionSupport.moved(current: nil, direction: .right, count: 10, columns: 5) == 0,
+                     "nothing selected yet starts at the first tile")
+        suite.expect(LaunchpadSelectionSupport.moved(current: nil, direction: .right, count: 0, columns: 5) == nil,
+                     "an empty page has nothing to select")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 2, direction: .right, count: 10, columns: 5) == 3,
+                     "right moves forward by one")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 0, direction: .left, count: 10, columns: 5) == 0,
+                     "left at the first tile stays put rather than wrapping")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 9, direction: .right, count: 10, columns: 5) == 9,
+                     "right at the last tile stays put rather than wrapping")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 2, direction: .down, count: 10, columns: 5) == 7,
+                     "down moves forward by one full row")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 7, direction: .up, count: 10, columns: 5) == 2,
+                     "up moves back by one full row")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 2, direction: .up, count: 10, columns: 5) == 2,
+                     "up on the first row stays put")
+        suite.expect(LaunchpadSelectionSupport.moved(current: 7, direction: .down, count: 10, columns: 5) == 7,
+                     "down past the last row stays put rather than crossing to another page")
     }
 }

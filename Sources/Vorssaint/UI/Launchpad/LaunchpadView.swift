@@ -16,6 +16,7 @@ struct LaunchpadView: View {
     @State private var openFolder: LaunchpadFolder?
     @State private var folderPage = 0
     @State private var folderNameDraft = ""
+    @State private var selectedIndex: Int?
     @FocusState private var searchFocused: Bool
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
@@ -64,12 +65,41 @@ struct LaunchpadView: View {
             }
         }
         .onAppear { refreshOnShow() }
-        .onChange(of: query) { page = 0 }
+        .onChange(of: query) { page = 0; selectedIndex = nil }
+        .onChange(of: page) { selectedIndex = nil }
         .onReceive(LaunchpadService.shared.pageStep) { step in
             guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
             withAnimation(.easeOut(duration: 0.25)) { page = target }
         }
         .onReceive(LaunchpadService.shared.didShow) { refreshOnShow() }
+        .onReceive(LaunchpadService.shared.keyAction) { handleKeyAction($0) }
+    }
+
+    /// Ignored while a folder is open: the folder overlay has no keyboard
+    /// navigation of its own yet, and applying these to the grid behind it
+    /// while it's covered would move a selection nobody can see.
+    private func handleKeyAction(_ action: LaunchpadKeyAction) {
+        guard openFolder == nil, pages.indices.contains(page) else { return }
+        let currentPage = pages[page]
+        switch action {
+        case .arrow(let direction, let commandHeld):
+            if commandHeld {
+                let step = direction == .right ? 1 : direction == .left ? -1 : 0
+                guard step != 0, let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
+                withAnimation(.easeOut(duration: 0.25)) { page = target }
+            } else {
+                selectedIndex = LaunchpadSelectionSupport.moved(current: selectedIndex, direction: direction,
+                                                                count: currentPage.count, columns: LaunchpadAppSupport.columns)
+            }
+        case .launch:
+            guard let selectedIndex, currentPage.indices.contains(selectedIndex) else { return }
+            switch currentPage[selectedIndex] {
+            case .app(let id):
+                if let app = appsByID[id] { launch(app) }
+            case .folder(let folder):
+                openFolder = folder
+            }
+        }
     }
 
     private var searchField: some View {
@@ -87,24 +117,27 @@ struct LaunchpadView: View {
 
     private func grid(for items: [LaunchpadItem]) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: LaunchpadAppSupport.columns), spacing: 28) {
-            ForEach(items) { item in
-                tile(for: item)
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                tile(for: item, isSelected: index == selectedIndex)
+                    .onTapGesture { selectedIndex = index }
             }
         }
         .padding(.horizontal, 60)
     }
 
     @ViewBuilder
-    private func tile(for item: LaunchpadItem) -> some View {
+    private func tile(for item: LaunchpadItem, isSelected: Bool) -> some View {
         switch item {
         case .app(let id):
             if let app = appsByID[id] {
                 appTile(app)
+                    .selectionHighlight(isSelected)
                     .onDrag { NSItemProvider(object: app.id as NSString) }
                     .onDrop(of: [.text], delegate: LaunchpadDropDelegate(targetID: item.id, layout: $layout, newFolderName: text.newFolderDefaultName))
             }
         case .folder(let folder):
             folderTile(folder)
+                .selectionHighlight(isSelected)
                 .onDrop(of: [.text], delegate: LaunchpadDropDelegate(targetID: item.id, layout: $layout, newFolderName: text.newFolderDefaultName))
                 .onTapGesture { openFolder = folder }
         }
@@ -222,6 +255,7 @@ struct LaunchpadView: View {
         query = ""
         page = 0
         openFolder = nil
+        selectedIndex = nil
         searchFocused = true
     }
 
@@ -257,5 +291,21 @@ private struct LaunchpadDropDelegate: DropDelegate {
             }
         }
         return true
+    }
+}
+
+private extension View {
+    /// The keyboard-navigated tile, outlined the same way a focus ring
+    /// would be — arrow keys move this, Return activates whichever tile
+    /// currently has it.
+    @ViewBuilder
+    func selectionHighlight(_ isSelected: Bool) -> some View {
+        if isSelected {
+            self.overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.85), lineWidth: 2)
+                .padding(-6))
+        } else {
+            self
+        }
     }
 }

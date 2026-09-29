@@ -51,6 +51,32 @@ enum LaunchpadAppSupport {
     }
 }
 
+enum LaunchpadArrowDirection {
+    case up, down, left, right
+}
+
+/// Arrow-key navigation across the current page's tiles: a flat array
+/// index moved by one column's worth of tiles for up/down. Clamped rather
+/// than wrapping, and clamped rather than crossing into another page — a
+/// page change is its own explicit action (⌘←/→), not a side effect of
+/// walking off an edge.
+enum LaunchpadSelectionSupport {
+    static func moved(current: Int?, direction: LaunchpadArrowDirection, count: Int, columns: Int) -> Int? {
+        guard count > 0 else { return nil }
+        guard let current, (0..<count).contains(current) else { return 0 }
+        switch direction {
+        case .left: return current > 0 ? current - 1 : current
+        case .right: return current < count - 1 ? current + 1 : current
+        case .up:
+            let target = current - columns
+            return target >= 0 ? target : current
+        case .down:
+            let target = current + columns
+            return target < count ? target : current
+        }
+    }
+}
+
 /// Turns a trackpad swipe's cumulative horizontal travel into a page step,
 /// the same threshold-crossing shape real paged UI (Launchpad, Home Screen)
 /// uses: nothing happens until the swipe has gone far enough one way.
