@@ -21,6 +21,8 @@ final class KeepAwakeManager: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var endDate: Date? // nil = indefinite
     @Published private(set) var sessionTrigger: SessionTrigger?
+    /// The preset a manual session started from; nil for an end time or automation.
+    @Published private(set) var sessionMinutes: Int?
     @Published private(set) var runningAppBundleIDs: [String] = []
     @Published private(set) var activeAutomationConditions = Set<KeepAwakeAutomationCondition>()
     @Published private(set) var clamshellActive = false {
@@ -142,6 +144,49 @@ final class KeepAwakeManager: ObservableObject {
         }
     }
 
+    /// Clearing permissions, or an uninstall that stopped, restored normal
+    /// sleep directly and left this app running. Discard the old session state
+    /// without asking for the rule again: a rule that is still installed rearms
+    /// the current session, and a removed one is requested by the next session.
+    func resumeAfterSystemTeardown() {
+        let restorePending = clamshellRestorePending
+        if !restorePending { clamshellOperationGeneration &+= 1 }
+        // An installation prompt may already be open. Its existing reply can
+        // finish setup without showing a second authorization request.
+        clamshellEnablePending = false
+        lidSleepGeneration &+= 1
+        lidSleepAttemptsRemaining = 0
+        clamshellActive = false
+        passwordlessClamshell = false
+        let generation = clamshellOperationGeneration
+        let checksSleep = UserDefaults.standard.bool(forKey: DefaultsKey.sleepDisabledFlag)
+        DispatchQueue.global(qos: .utility).async {
+            // A session can start while the removal waits for its password and
+            // turn sleep off again through the rule. Only a reading that answered
+            // "on" lets the recovery marker go.
+            var sleepRestored = true
+            if checksSleep {
+                let report = Shell.run("/usr/bin/pmset", ["-g"])
+                sleepRestored = report.status == 0
+                    && !SudoersSupport.sleepDisabled(inPmsetOutput: report.output)
+            }
+            let configured = !restorePending && Sudoers.isConfigured()
+            DispatchQueue.main.async {
+                guard !self.isTerminating, self.clamshellOperationGeneration == generation else { return }
+                if checksSleep, sleepRestored {
+                    UserDefaults.standard.set(false, forKey: DefaultsKey.sleepDisabledFlag)
+                }
+                // A prior restore can still finish with an authorized off. Its
+                // reply rearms this session in order after that operation.
+                guard !restorePending, !self.clamshellRestorePending else { return }
+                self.passwordlessClamshell = configured
+                if configured, self.clamshellPreferred, AppFeature.keepAwake.isAvailable {
+                    self.enableClamshell()
+                }
+            }
+        }
+    }
+
     // MARK: - Session
 
     func toggle() {
@@ -151,7 +196,7 @@ final class KeepAwakeManager: ObservableObject {
             }
             deactivate(reason: .manual)
         } else {
-            activate(minutes: Defaults.sanitizedDefaultDuration(UserDefaults.standard.integer(forKey: DefaultsKey.defaultDuration)))
+            startLastPick()
         }
     }
 
@@ -186,12 +231,35 @@ final class KeepAwakeManager: ObservableObject {
         let minutes = Defaults.sanitizedDefaultDuration(minutes)
         let end = minutes > 0 ? Date().addingTimeInterval(TimeInterval(minutes) * 60) : nil
         activate(end: end, trigger: .manual)
+        sessionMinutes = isActive ? minutes : nil
+        guard isActive else { return }
+        // Every entry point records the pick, so each switch restarts the same session.
+        UserDefaults.standard.set(minutes, forKey: DefaultsKey.defaultDuration)
+        UserDefaults.standard.set(false, forKey: DefaultsKey.keepAwakeSwitchUsesUntil)
     }
 
     func activate(until date: Date) {
         guard date > Date() else { return }
         automationSuppressedUntilConditionsClear = false
         activate(end: date, trigger: .manual)
+        // An end time replaces any running preset, so no duration chip stays selected.
+        sessionMinutes = nil
+        guard isActive else { return }
+        UserDefaults.standard.set(true, forKey: DefaultsKey.keepAwakeSwitchUsesUntil)
+        UserDefaults.standard.set(date.timeIntervalSinceReferenceDate, forKey: DefaultsKey.keepAwakeUntilTime)
+    }
+
+    /// Restarts the last pick: the saved end time while it is still ahead,
+    /// otherwise the saved duration. A passed end time never rolls to
+    /// tomorrow here, which would silently start a session of almost a day.
+    func startLastPick() {
+        let defaults = UserDefaults.standard
+        let end = Date(timeIntervalSinceReferenceDate: defaults.double(forKey: DefaultsKey.keepAwakeUntilTime))
+        if defaults.bool(forKey: DefaultsKey.keepAwakeSwitchUsesUntil), end > Date() {
+            activate(until: end)
+        } else {
+            activate(minutes: Defaults.sanitizedDefaultDuration(defaults.integer(forKey: DefaultsKey.defaultDuration)))
+        }
     }
 
     private func activate(end: Date?, trigger: SessionTrigger) {
@@ -250,6 +318,7 @@ final class KeepAwakeManager: ObservableObject {
         endDate = nil
         releaseAssertions()
         sessionTrigger = nil
+        sessionMinutes = nil
         activeAutomationConditions.removeAll()
         isActive = false
         sessionPausedForScreenLock = false
@@ -977,6 +1046,12 @@ final class KeepAwakeManager: ObservableObject {
         lidDimmingNotificationPort = port
         IONotificationPortSetDispatchQueue(port, DispatchQueue.main)
         lidClosedForDimming = BrightnessService.lidClosed()
+        // The option can be enabled from an external display while the lid is
+        // already shut. No transition follows registration in that case.
+        if armed, lidClosedForDimming == true, savedDisplayBrightness == nil {
+            applyDimmingAction(LidDimmingSupport.lidClosed(
+                currentBrightness: LidDisplayDimmer.currentBrightness()))
+        }
     }
 
     /// General interest fires on far more than lid transitions, so the
@@ -1055,12 +1130,19 @@ final class KeepAwakeManager: ObservableObject {
     }
 
     private func checkBattery() {
-        let limit = Defaults.sanitizedBatteryLimit(UserDefaults.standard.integer(forKey: DefaultsKey.batteryLimit))
-        guard limit > 0, isActive else { return }
-        guard let battery = SystemInfo.batterySnapshot(),
-              battery.isOnBattery,
-              battery.percent <= limit else { return }
+        guard isActive, batteryProtectionPercent() != nil else { return }
         deactivate(reason: .battery)
+    }
+
+    /// The battery level while battery protection would end any session at
+    /// once (on battery, at or below the limit); nil when a session can run.
+    func batteryProtectionPercent() -> Int? {
+        let limit = Defaults.sanitizedBatteryLimit(UserDefaults.standard.integer(forKey: DefaultsKey.batteryLimit))
+        guard limit > 0,
+              let battery = SystemInfo.batterySnapshot(),
+              battery.isOnBattery,
+              battery.percent <= limit else { return nil }
+        return battery.percent
     }
 
     // MARK: - Optional pointer activity

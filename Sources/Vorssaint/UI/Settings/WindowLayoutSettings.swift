@@ -92,7 +92,6 @@ struct WindowLayoutSettings: View {
                         }
                         .controlSize(.small)
                     }
-                    Divider()
                     Toggle(text.gestureEnable, isOn: $gestureEnabled)
                         .onChange(of: gestureEnabled) { _, _ in
                             WindowLayoutService.shared.syncWithPreferences()
@@ -241,7 +240,7 @@ struct WindowLayoutSettings: View {
             }
             WindowMaximizerExclusionsList()
         }
-        .settingsSectionAnchor(.windowMaximizer)
+        .settingsFormSectionAnchor(.windowMaximizer)
     }
 
     private var directionalShortcut: GlobalShortcut {

@@ -10,6 +10,7 @@ struct ShortcutsSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var features = FeatureRuntime.shared
     @ObservedObject private var superKey = SuperKeyService.shared
+    @ObservedObject private var router = SettingsRouter.shared
     @AppStorage(DefaultsKey.keyboardBrightnessShortcutsEnabled) private var keyboardBrightnessShortcutsEnabled = false
     /// Keyed by group too: brightness has a row in two groups, and each opens on its own.
     @State private var expandedFeatures: [FeatureGroup: Set<AppFeature>] = [.tools: [.screenshot]]
@@ -48,9 +49,6 @@ struct ShortcutsSettings: View {
                     ForEach(featuresWithShortcuts(in: group), id: \.self) { feature in
                         if feature == .screenshot {
                             captureGroupRows
-                        } else if feature == .soundOutputSwitcher {
-                            featureRows(feature, in: group)
-                                .settingsSectionAnchor(.soundOutputSwitcher)
                         } else {
                             featureRows(feature, in: group)
                         }
@@ -73,6 +71,8 @@ struct ShortcutsSettings: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { revealKeyboardBrightnessShortcuts() }
+        .onChange(of: router.requestID) { _, _ in revealKeyboardBrightnessShortcuts() }
         .sheet(isPresented: $showsAppShortcuts) {
             CommandBarAppShortcutsView()
         }
@@ -116,13 +116,10 @@ struct ShortcutsSettings: View {
         let count = feature == .windowLayout
             ? WindowLayoutAction.shortcutActions.count + roles.count
             : roles.count
-        if count > 1 {
-            disclosureHeader(
-                title: featureTitle(feature, roles: roles),
-                symbolName: featureSymbol(feature, roles: roles),
-                isActive: featureHasActiveShortcut(feature, roles: roles),
-                count: count,
-                isExpanded: expansionBinding(for: feature, in: group))
+        if feature == .radialMenu {
+            RadialMenuShortcutsRow(text: text)
+        } else if count > 1 {
+            featureHeader(feature, roles: roles, count: count, in: group)
             if expandedFeatures[group, default: []].contains(feature) {
                 if feature == .windowLayout {
                     ForEach(WindowLayoutAction.shortcutActions) { action in
@@ -158,6 +155,28 @@ struct ShortcutsSettings: View {
         } else if let role = roles.first {
             roleRow(role)
         }
+    }
+
+    @ViewBuilder
+    private func featureHeader(_ feature: AppFeature, roles: [GlobalShortcutRole],
+                               count: Int, in group: FeatureGroup) -> some View {
+        let header = disclosureHeader(
+            title: featureTitle(feature, roles: roles),
+            symbolName: featureSymbol(feature, roles: roles),
+            isActive: featureHasActiveShortcut(feature, roles: roles),
+            count: count,
+            isExpanded: expansionBinding(for: feature, in: group))
+        if feature == .brightness, roles.allSatisfy(\.isKeyboardBrightness) {
+            header.settingsSectionAnchor(.keyboardBrightnessShortcuts)
+        } else {
+            header
+        }
+    }
+
+    private func revealKeyboardBrightnessShortcuts() {
+        guard router.destination == FeatureSettingsDestination(
+            .shortcuts, sectionAnchor: .keyboardBrightnessShortcuts) else { return }
+        expandedFeatures[.mouseKeyboard, default: []].insert(.brightness)
     }
 
     private func featureTitle(_ feature: AppFeature, roles: [GlobalShortcutRole]) -> String {
@@ -278,6 +297,42 @@ private struct KeyboardBrightnessShortcutToggle: View {
             Text(l10n.s.shortcutUnavailable)
                 .font(.caption)
                 .foregroundStyle(.orange)
+        }
+    }
+}
+
+/// Each wheel answers to the shortcut saved in its own profile, and the radial
+/// menu's role key only seeds the first wheel until one is saved. A recorder for
+/// that key would then show a combination no wheel uses and change nothing, so
+/// the row lists what the wheels answer to and leaves the change to the Radial
+/// menu page.
+private struct RadialMenuShortcutsRow: View {
+    @ObservedObject private var l10n = L10n.shared
+    let text: ShortcutSettingsStrings
+
+    var body: some View {
+        let role = GlobalShortcutRole.radialMenu
+        let shortcuts = RadialMenuSupport.profileShortcuts()
+        let active = !shortcuts.isEmpty
+            && role.requiredEnableKeys.allSatisfy { UserDefaults.standard.bool(forKey: $0) }
+        HStack(alignment: .top, spacing: 8) {
+            ShortcutRowLabel(title: role.title(l10n.s),
+                             symbolName: role.feature.symbolName,
+                             contextLabel: nil,
+                             statusText: active ? text.active : text.inactive,
+                             statusIsActive: active)
+            Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(shortcuts.isEmpty
+                     ? l10n.s.shortcutNone
+                     : shortcuts.map(\.displayString).joined(separator: "\n"))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                Button(FeatureStrings.radialMenu(l10n.language).manageButton) {
+                    SettingsRouter.shared.request(role.feature.settingsDestination,
+                                                  sidebarFeature: role.feature)
+                }
+            }
         }
     }
 }

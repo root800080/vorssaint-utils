@@ -10,6 +10,7 @@ struct CommandBarEntry: Identifiable {
         case appIcon(path: String)
         case clipboardImage(name: String)
         case filePath(String)
+        case color(ColorValue)
     }
 
     /// Why Return will not do the main thing yet. The row says so in one
@@ -103,6 +104,11 @@ struct CommandBarEntry: Identifiable {
                         matchTitle: matchTitle, keepsBarOpen: keepsBarOpen,
                         takesArgument: takesArgument, revealPath: revealPath,
                         uninstallAppURL: uninstallAppURL, run: run)
+    }
+
+    var isColor: Bool {
+        if case .color = icon { return true }
+        return false
     }
 
     /// Glyph rows get a tinted plate behind the icon; real app, file and
@@ -529,13 +535,16 @@ enum CommandBarCatalog {
             numericRange: 0...100,
             run: { value in
                 guard let value else { return }
-                let applied = AppVolumeMixer.setSystemOutputVolume(Double(value) / 100)
-                if applied {
-                    QuickToolHUD.show(icon: "speaker.wave.2",
-                                      message: "\(FeatureStrings.commandBar(L10n.shared.language).volumeTitle) \(value)%")
-                } else {
+                let level = Double(value) / 100
+                guard AppVolumeMixer.setSystemOutputVolume(level) else {
                     NSSound.beep()
+                    return
                 }
+                // Dynamic Island shows the level itself, and a floating copy
+                // would sit right below it.
+                if NotchSupport.routes(.volume), NotchService.shared.showVolume(level) { return }
+                QuickToolHUD.show(icon: "speaker.wave.2",
+                                  message: "\(FeatureStrings.commandBar(L10n.shared.language).volumeTitle) \(value)%")
             }))
         }
 
@@ -845,6 +854,12 @@ enum CommandBarCatalog {
                         item.destination.page, isAvailable: { $0.isAvailable })
                 else { return nil }
                 id = "settings.feature.\(feature.rawValue)"
+            case .setting(let anchor):
+                guard item.feature.map(\.isAvailable) ?? true,
+                      FeatureVisibilitySupport.isPageVisible(
+                        item.destination.page, isAvailable: { $0.isAvailable })
+                else { return nil }
+                id = "settings.setting.\(anchor.rawValue)"
             }
             return CommandBarEntry(
                 id: id,
@@ -854,7 +869,8 @@ enum CommandBarCatalog {
                 icon: .symbol(item.icon),
                 run: { _ in
                     let routed = SettingsSearchSupport.route(for: item)
-                    openSettings(at: routed.destination, targetFeature: routed.targetFeature)
+                    openSettings(at: routed.destination, targetFeature: routed.targetFeature,
+                                 sidebarFeature: item.feature)
                 })
         }
     }
@@ -1604,6 +1620,27 @@ enum CommandBarCatalog {
                 countsUsage: false,
                 run: { _ in copyAnswer(converted.formatted) })
         }
+        if let converted = CommandBarColors.convert(query) {
+            return CommandBarEntry(
+                id: "color.result",
+                title: converted.formatted,
+                subtitle: bar.copyHint,
+                icon: .color(converted.color),
+                isAnswer: true,
+                countsUsage: false,
+                run: { _ in copyAnswer(converted.formatted) })
+        }
+        if let color = ColorValue(text: query) {
+            let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            return CommandBarEntry(
+                id: "color.preview",
+                title: value,
+                subtitle: bar.copyHint,
+                icon: .color(color),
+                isAnswer: true,
+                countsUsage: false,
+                run: { _ in copyAnswer(value) })
+        }
         // Dates last: a sum and a conversion are stricter, and "3" alone must
         // never become a date.
         if let dated = CommandBarDates.evaluate(query) {
@@ -1710,8 +1747,10 @@ enum CommandBarCatalog {
     }
 
     private static func openSettings(at destination: FeatureSettingsDestination,
-                                     targetFeature: AppFeature? = nil) {
-        SettingsRouter.shared.request(destination, targetFeature: targetFeature)
+                                     targetFeature: AppFeature? = nil,
+                                     sidebarFeature: AppFeature? = nil) {
+        SettingsRouter.shared.request(destination, targetFeature: targetFeature,
+                                      sidebarFeature: sidebarFeature)
         appDelegate()?.openSettingsWindow()
     }
 

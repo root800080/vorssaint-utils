@@ -17,6 +17,7 @@ struct SwitcherSettings: View {
     @AppStorage(DefaultsKey.switcherMergeTabs) private var switcherMergeTabs = false
     @AppStorage(DefaultsKey.switcherWindowlessApps) private var switcherWindowlessApps = SwitcherWindowlessApps.fallback.rawValue
     @AppStorage(DefaultsKey.switcherMinimizedPlacement) private var switcherMinimizedPlacement = WindowSwitchMinimizedPlacement.normal.rawValue
+    @AppStorage(DefaultsKey.switcherTreatHiddenAppsLikeMinimized) private var switcherTreatHiddenAppsLikeMinimized = true
     @AppStorage(DefaultsKey.switcherShowFullscreenWindows) private var switcherShowFullscreenWindows = true
     @AppStorage(DefaultsKey.switcherScreenPlacement) private var switcherScreenPlacement = SwitcherScreenPlacement.fallback.rawValue
     @AppStorage(DefaultsKey.switcherCurrentDisplayOnly) private var switcherCurrentDisplayOnly = false
@@ -24,6 +25,7 @@ struct SwitcherSettings: View {
     @AppStorage(DefaultsKey.switcherSearchPinEnabled) private var switcherSearchPinEnabled = false
     @AppStorage(DefaultsKey.switcherShowShortcutHints) private var switcherShowShortcutHints = true
     @AppStorage(DefaultsKey.switcherAppearanceDelay) private var switcherAppearanceDelay = SwitcherSupport.defaultAppearanceDelayMilliseconds
+    @AppStorage(DefaultsKey.switcherInstantSelection) private var switcherInstantSelection = false
     private var pages: SettingsPageStrings { FeatureStrings.settingsPages(l10n.language) }
     private var switcherEngaged: Bool { switcherEnabled && AppFeature.switcher.isAvailable }
     private var switcherWindowlessAppsSelection: Binding<String> {
@@ -56,7 +58,8 @@ struct SwitcherSettings: View {
                         .disabled(!switcherEnabled)
                 }
                 if AppFeature.switcher.isAvailable {
-                    WindowPreviewsCard(sizeKey: DefaultsKey.switcherPreviewSize)
+                    WindowPreviewsCard(sizeKey: DefaultsKey.switcherPreviewSize,
+                                       excludedAppsKey: DefaultsKey.switcherPreviewExcludedApps)
                 }
                 if switcherEngaged {
                     if !permissions.accessibility {
@@ -180,6 +183,10 @@ struct SwitcherSettings: View {
                         .frame(width: 56, alignment: .trailing)
                 }
             }
+            SettingsRow(symbol: "cursorarrow.rays", title: l10n.s.switcherInstantSelection,
+                        caption: l10n.s.switcherInstantSelectionCaption) {
+                Toggle(l10n.s.switcherInstantSelection, isOn: $switcherInstantSelection).labelsHidden()
+            }
             SettingsRow(symbol: "magnifyingglass", title: l10n.s.switcherSearchPin,
                         caption: l10n.s.switcherSearchPinCaption) {
                 Toggle(l10n.s.switcherSearchPin, isOn: $switcherSearchPinEnabled).labelsHidden()
@@ -210,6 +217,16 @@ struct SwitcherSettings: View {
                 .onChange(of: switcherMinimizedPlacement) { _, _ in
                     AppSwitcher.shared.syncWithPreferences()
                 }
+            if switcherMinimizedPlacement != WindowSwitchMinimizedPlacement.normal.rawValue {
+                SettingsRow(symbol: "eye.slash", title: l10n.s.switcherTreatHiddenAppsLikeMinimized) {
+                    Toggle(l10n.s.switcherTreatHiddenAppsLikeMinimized,
+                           isOn: $switcherTreatHiddenAppsLikeMinimized)
+                        .labelsHidden()
+                        .onChange(of: switcherTreatHiddenAppsLikeMinimized) { _, _ in
+                            AppSwitcher.shared.syncWithPreferences()
+                        }
+                }
+            }
             chipRow(symbol: "display.2", title: l10n.s.switcherScreenPlacementLabel,
                     caption: l10n.s.switcherScreenPlacementCaption,
                     selection: $switcherScreenPlacement,
@@ -292,15 +309,17 @@ struct SwitcherSettings: View {
     }
 }
 
-/// The window previews card on the Switcher and Dock pages: each page sizes
-/// its own previews, while the minimal look and the exclusions are shared.
+/// The window previews card on the Switcher and Dock pages: each page has its
+/// own preview size and paused apps, while the minimal look is shared.
 struct WindowPreviewsCard: View {
     @ObservedObject private var l10n = L10n.shared
     @AppStorage(DefaultsKey.minimalWindowPreviews) private var minimalPreviews = false
     @AppStorage private var previewSize: String
+    private let excludedAppsKey: String
 
-    init(sizeKey: String) {
+    init(sizeKey: String, excludedAppsKey: String) {
         _previewSize = AppStorage(wrappedValue: "normal", sizeKey)
+        self.excludedAppsKey = excludedAppsKey
     }
 
     var body: some View {
@@ -319,7 +338,7 @@ struct WindowPreviewsCard: View {
                         caption: l10n.s.minimalWindowPreviewsCaption) {
                 Toggle(l10n.s.minimalWindowPreviews, isOn: $minimalPreviews).labelsHidden()
             }
-            WindowPreviewExclusionsList()
+            WindowPreviewExclusionsList(key: excludedAppsKey)
         }
     }
 

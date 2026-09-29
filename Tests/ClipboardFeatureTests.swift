@@ -79,9 +79,9 @@ enum ClipboardFeatureTests {
 
         // MARK: Clipboard history color swatches
 
-        func expectColor(_ text: String, _ expected: ClipboardHistoryColor?, _ label: String,
+        func expectColor(_ text: String, _ expected: ColorValue?, _ label: String,
                          file: StaticString = #filePath, line: UInt = #line) {
-            let actual = ClipboardHistoryColor(text: text)
+            let actual = ColorValue(text: text)
             let matches: Bool
             if let actual, let expected {
                 matches = [(actual.red, expected.red), (actual.green, expected.green),
@@ -93,30 +93,47 @@ enum ClipboardFeatureTests {
             suite.expect(matches, "\(label): got \(String(describing: actual)), expected \(String(describing: expected))",
                          file: file, line: line)
         }
-        expectColor("#00BC7D", ClipboardHistoryColor(red: 0, green: 188 / 255, blue: 125 / 255),
+        expectColor("#00BC7D", ColorValue(red: 0, green: 188 / 255, blue: 125 / 255),
                     "six digit hex from the request reads as its color")
-        expectColor("  #ffffff\n", ClipboardHistoryColor(red: 1, green: 1, blue: 1),
+        expectColor("  #ffffff\n", ColorValue(red: 1, green: 1, blue: 1),
                     "surrounding whitespace and lowercase digits still read as a color")
-        expectColor("#f80", ClipboardHistoryColor(red: 1, green: 136 / 255, blue: 0),
+        expectColor("#f80", ColorValue(red: 1, green: 136 / 255, blue: 0),
                     "three digit hex expands each digit")
-        expectColor("#00000080", ClipboardHistoryColor(red: 0, green: 0, blue: 0, alpha: 128 / 255),
+        expectColor("#00000080", ColorValue(red: 0, green: 0, blue: 0, alpha: 128 / 255),
                     "eight digit hex carries alpha in the last pair")
-        expectColor("#f008", ClipboardHistoryColor(red: 1, green: 0, blue: 0, alpha: 136 / 255),
+        expectColor("#f008", ColorValue(red: 1, green: 0, blue: 0, alpha: 136 / 255),
                     "four digit hex carries alpha in the last digit")
-        expectColor("rgb(0, 188, 125)", ClipboardHistoryColor(red: 0, green: 188 / 255, blue: 125 / 255),
+        expectColor("rgb(0, 188, 125)", ColorValue(red: 0, green: 188 / 255, blue: 125 / 255),
                     "the color picker's rgb format reads as a color")
-        expectColor("rgba(255 0 0 / 50%)", ClipboardHistoryColor(red: 1, green: 0, blue: 0, alpha: 0.5),
+        expectColor("rgba(255 0 0 / 50%)", ColorValue(red: 1, green: 0, blue: 0, alpha: 0.5),
                     "space separated rgba with a slash alpha reads as a color")
-        expectColor("hsl(120, 100%, 25%)", ClipboardHistoryColor(red: 0, green: 0.5, blue: 0),
+        expectColor("hsl(120, 100%, 25%)", ColorValue(red: 0, green: 0.5, blue: 0),
                     "the color picker's hsl format converts to rgb")
-        expectColor("hsl(-120deg 100% 50%)", ClipboardHistoryColor(red: 0, green: 0, blue: 1),
+        expectColor("hsl(-120deg 100% 50%)", ColorValue(red: 0, green: 0, blue: 1),
                     "negative hue in degrees wraps around the circle")
-        expectColor(QuickToolsSupport.colorString(red: 0.2, green: 0.4, blue: 0.6, format: .hsl),
-                    ClipboardHistoryColor(red: 0.2, green: 0.4, blue: 0.6),
+        expectColor(ColorValue.string(red: 0.2, green: 0.4, blue: 0.6, format: .hsl),
+                    ColorValue(red: 0.2, green: 0.4, blue: 0.6),
                     "hsl written by the color picker reads back close to its source")
-        for text in ["00BC7D", "#12345", "#GGGGGG", "#00BC7D is the brand green", "color: #00BC7D",
+        expectColor(ColorValue.string(red: 0.2, green: 0.4, blue: 0.6, format: .swiftui),
+                    ColorValue(red: 0.2, green: 0.4, blue: 0.6),
+                    "SwiftUI code written by the color picker reads back as its color")
+        expectColor("Color(red:0.2,green:0.4,blue:0.6)",
+                    ColorValue(red: 0.2, green: 0.4, blue: 0.6),
+                    "compact SwiftUI code without spaces reads as a color")
+        expectColor("Color(red:1, green:0,blue: 0,opacity:0.5)",
+                    ColorValue(red: 1, green: 0, blue: 0, alpha: 0.5),
+                    "SwiftUI labels read with any spacing after the colon")
+        expectColor("Color(red: 1, green: 0, blue: 0, opacity: 0.5)",
+                    ColorValue(red: 1, green: 0, blue: 0, alpha: 0.5),
+                    "SwiftUI opacity reads as alpha")
+        expectColor("Color(red: 0.2509803922, green: 0.5019607843, blue: 0.7529411765, opacity: 0.5)",
+                    ColorValue(red: 0.251, green: 0.502, blue: 0.753, alpha: 0.5),
+                    "full precision SwiftUI code from Xcode reads as a color")
+        for text in ["Color(red: 1, green: 0)", "Color(green: 0, red: 1, blue: 0)",
+                     "Color(red: 2, green: 0, blue: 0)", "Color(.red)", "Color(red:1,green:0,blue:0,)",
+                     "Color(red 1, green 0, blue 0)", "00BC7D", "#12345", "#GGGGGG", "#00BC7D is the brand green", "color: #00BC7D",
                      "rgb(256, 0, 0)", "rgb(0, 0)", "rgb(0, 0, 0, 2)", "hsl(0, 50, 50%)",
-                     "rgb(nan, 0, 0)", "#", "", String(repeating: " ", count: 80) + "#fff"] {
+                     "rgb(nan, 0, 0)", "#", "", String(repeating: " ", count: 100) + "#fff"] {
             expectColor(text, nil, "\(text.debugDescription) is not a lone color value")
         }
         suite.expect(ClipboardHistoryEntry(text: "#fff", kind: .files, filePaths: ["/tmp/#fff"]).color == nil
@@ -145,6 +162,37 @@ enum ClipboardFeatureTests {
                "auto clear starts at twenty seconds")
         suite.expect(Defaults.registeredDefaults[DefaultsKey.clipboardHistoryQuickPreview] as? Bool == false,
                "clipboard history quick preview is closed by default")
+
+        // MARK: Clipboard quick window sizing
+
+        let desktop = NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let compactSize = ClipboardHistoryWindowSizing.contentSize(
+            preview: false, savedWidth: 0, savedHeight: 0, visibleFrame: desktop)
+        let previewSize = ClipboardHistoryWindowSizing.contentSize(
+            preview: true, savedWidth: 0, savedHeight: 0, visibleFrame: desktop)
+        suite.expect(compactSize == NSSize(width: 560, height: 420)
+                && previewSize == NSSize(width: 840, height: 500),
+               "clipboard quick window retains its original compact and preview sizes by default")
+        suite.expect(ClipboardHistoryWindowSizing.minimumSize(preview: false)
+                == NSSize(width: 560, height: 300)
+                && ClipboardHistoryWindowSizing.minimumSize(preview: true)
+                    == NSSize(width: 840, height: 380),
+               "the narrowest clipboard window leaves room for batch actions in both layouts")
+        let taller = ClipboardHistoryWindowSizing.contentSize(
+            preview: true, savedWidth: 700, savedHeight: 640, visibleFrame: desktop)
+        suite.expect(taller == NSSize(width: 980, height: 720)
+                && ClipboardHistoryWindowSizing.savedCompactSize(from: taller, preview: true)
+                    == NSSize(width: 700, height: 640),
+               "a resized preview returns to the same chosen list size")
+        let shortScreen = NSRect(x: 0, y: 0, width: 1050, height: 700)
+        suite.expect(ClipboardHistoryWindowSizing.contentSize(
+            preview: true, savedWidth: 1000, savedHeight: 900, visibleFrame: shortScreen)
+                == NSSize(width: 1018, height: 668),
+               "a saved size is limited to the visible display")
+        suite.expect(ClipboardHistoryWindowSizing.contentSize(
+            preview: false, savedWidth: .infinity, savedHeight: -1, visibleFrame: desktop)
+                == compactSize,
+               "invalid saved dimensions fall back to the original size")
 
         // MARK: Clipboard menu bar preview
 
@@ -300,11 +348,11 @@ enum ClipboardFeatureTests {
             suite.expect(alertStrings.caption.contains("12"),
                    "\(language.rawValue) monitor alert caption explains the sustained alert window")
             expectFormat(alertStrings.cpuBodyFormat, ["d"], "\(language.rawValue) CPU alert format")
-            expectFormat(alertStrings.cpuTemperatureBodyFormat, ["d"],
+            expectFormat(alertStrings.cpuTemperatureBodyFormat, ["@"],
                          "\(language.rawValue) CPU temperature alert format")
             expectFormat(alertStrings.diskBodyFormat, ["@", "d"], "\(language.rawValue) disk alert format")
             expectFormat(alertStrings.batteryBodyFormat, ["d"], "\(language.rawValue) battery alert format")
-            expectFormat(alertStrings.batteryTemperatureBodyFormat, ["d"],
+            expectFormat(alertStrings.batteryTemperatureBodyFormat, ["@"],
                          "\(language.rawValue) battery temperature alert format")
         }
         suite.expect(FeatureStrings.monitorAlerts(.enUS).cooldown == "Repeat the same alert after",
@@ -739,6 +787,9 @@ enum ClipboardPreviewContract {
     class Fixture {
         var latestPasteboardEntry: ClipboardHistoryEntry?
         var entriesStamp = 0
+        var filterCache: (query: String, stamp: Int, imageLabel: String,
+                          result: [ClipboardHistoryEntry])?
+        var foldedCandidateCache: (imageLabel: String, candidates: [ClipboardHistorySearchCandidate])?
         var pendingWrite: ((Bool) -> Void)?
         func writeToPasteboard(_ list: [ClipboardHistoryEntry], completion: @escaping (Bool) -> Void) {
             pendingWrite = completion
@@ -823,5 +874,47 @@ enum ClipboardPreviewContract {
         service.togglePin(heavy[0])
         suite.expect(service.entries.first { $0.id == heavy[0].id }?.isPinned == false,
                      "unpinning is never refused by the size of the saved file")
+        searchFolding(suite)
+    }
+
+    /// #1885: typing searches the history once per keystroke, so the folded
+    /// text has to be reused between keystrokes and still rank exactly as a
+    /// fresh fold would.
+    private static func searchFolding(_ suite: TestSuite) {
+        var pinned = ClipboardHistoryEntry(text: "Token CLEANUP\tnote")
+        pinned.pinnedAt = Date()
+        let texts = ["Deploy checklist final", "Final database\ndeploy plan", "Reunião com João"]
+        let entries = [pinned] + texts.map { ClipboardHistoryEntry(text: $0) }
+        let service = Service()
+        service.setEntries(entries)
+        let unfolded = entries.enumerated().map { index, entry in
+            ClipboardHistorySearchCandidate(index: index, text: entry.text, isPinned: entry.isPinned)
+        }
+        for query in ["deploy final", "cleanup token", "reuniao JOAO", "plan deploy", "missing", "", "  "] {
+            let expected = ClipboardHistorySearch.rankedIndexes(candidates: unfolded, matching: query)
+                .map { entries[$0].id }
+            suite.expect(service.filteredEntries(matching: query).map(\.id) == expected,
+                         "searching folded history text ranks \"\(query)\" like a fresh fold")
+        }
+
+        service.foldedCandidateCache = nil
+        _ = service.filteredEntries(matching: "")
+        suite.expect(service.foldedCandidateCache == nil,
+                     "an empty search lists the history without folding it")
+
+        _ = service.filteredEntries(matching: "d")
+        guard var cache = service.foldedCandidateCache else {
+            suite.expect(false, "a search keeps the folded history for the next keystroke")
+            return
+        }
+        cache.candidates[0].text = "sentinel only in the cache"
+        service.foldedCandidateCache = cache
+        suite.expect(service.filteredEntries(matching: "sentinel").map(\.id) == [pinned.id],
+                     "the next keystroke reuses the folded history instead of folding it again")
+
+        let added = ClipboardHistoryEntry(text: "Sentinel copied later")
+        service.setEntries(entries + [added])
+        suite.expect(service.filteredEntries(matching: "sentinel").map(\.id) == [added.id],
+                     "a history change folds the new text and drops the old fold")
     }
 }
