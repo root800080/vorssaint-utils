@@ -66,5 +66,32 @@ enum LaunchpadLayoutSupportTests {
         let duplicated = LaunchpadLayout(items: [.app("a"), .app("a"), .app("b")])
         suite.expect(LaunchpadLayoutSupport.sanitized(duplicated).items.map(\.id) == ["a", "b"],
                      "sanitizing drops a duplicate item id")
+
+        let renameFolder = LaunchpadFolder(id: UUID(), name: "Old Name", appIDs: ["x", "y"])
+        let renamed = LaunchpadLayoutSupport.renamingFolder(LaunchpadLayout(items: [.folder(renameFolder)]), folderID: renameFolder.id, name: "Work")
+        if case .folder(let updated) = renamed.items.first {
+            suite.expect(updated.name == "Work", "renaming a folder replaces its name")
+        } else {
+            suite.expect(false, "renaming a folder must not turn it into something else")
+        }
+
+        let blankRename = LaunchpadLayoutSupport.renamingFolder(LaunchpadLayout(items: [.folder(renameFolder)]), folderID: renameFolder.id, name: "   ")
+        if case .folder(let unchanged) = blankRename.items.first {
+            suite.expect(unchanged.name == "Old Name", "a blank name is ignored rather than leaving a folder untitled")
+        } else {
+            suite.expect(false, "an ignored rename must not touch the folder otherwise")
+        }
+
+        suite.expect(LaunchpadLayoutSupport.renamingFolder(LaunchpadLayout(items: [.app("a")]), folderID: UUID(), name: "X").items.map(\.id) == ["a"],
+                     "renaming a folder id that isn't in the layout does nothing")
+
+        let longName = LaunchpadFolder(id: UUID(), name: String(repeating: "a", count: 80), appIDs: ["x", "y"])
+        let sanitizedLongName = LaunchpadLayoutSupport.sanitized(LaunchpadLayout(items: [.folder(longName)]))
+        if case .folder(let capped) = sanitizedLongName.items.first {
+            suite.expect(capped.name.count == LaunchpadLayoutSupport.maximumFolderNameLength,
+                         "sanitizing caps an overly long folder name")
+        } else {
+            suite.expect(false, "sanitizing a long folder name must not drop the folder")
+        }
     }
 }

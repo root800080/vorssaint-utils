@@ -15,6 +15,7 @@ struct LaunchpadView: View {
     @State private var layout = LaunchpadLayoutStore.stored()
     @State private var openFolder: LaunchpadFolder?
     @State private var folderPage = 0
+    @State private var folderNameDraft = ""
     @FocusState private var searchFocused: Bool
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
@@ -151,7 +152,13 @@ struct LaunchpadView: View {
         let folderApps = folder.appIDs.compactMap { appsByID[$0] }
         let folderPages = LaunchpadAppSupport.folderPages(folderApps)
         return VStack(spacing: 20) {
-            Text(folder.name).font(.title3.weight(.semibold)).foregroundStyle(.white)
+            TextField(folder.name, text: $folderNameDraft)
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.center)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 220)
+                .onSubmit { commitFolderRename(folder) }
             if folderPages.indices.contains(folderPage) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 24), count: LaunchpadAppSupport.folderColumns), spacing: 24) {
                     ForEach(folderPages[folderPage]) { app in
@@ -173,8 +180,23 @@ struct LaunchpadView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.35).onTapGesture { openFolder = nil })
-        .onChange(of: openFolder) { folderPage = 0 }
+        .background(Color.black.opacity(0.35).onTapGesture {
+            commitFolderRename(folder)
+            openFolder = nil
+        })
+        .onChange(of: openFolder) { folderPage = 0; folderNameDraft = openFolder?.name ?? "" }
+    }
+
+    /// A blank draft (never typed into, or cleared back to nothing) leaves
+    /// the folder's name untouched rather than renaming it to empty.
+    private func commitFolderRename(_ folder: LaunchpadFolder) {
+        guard !folderNameDraft.trimmingCharacters(in: .whitespaces).isEmpty, folderNameDraft != folder.name else { return }
+        let updated = LaunchpadLayoutSupport.renamingFolder(layout, folderID: folder.id, name: folderNameDraft)
+        layout = updated
+        LaunchpadLayoutStore.save(updated)
+        if case .folder(let renamed) = updated.items.first(where: { $0.id == folder.id.uuidString }) {
+            openFolder = renamed
+        }
     }
 
     private var pageDots: some View {

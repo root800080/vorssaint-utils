@@ -67,12 +67,33 @@ enum LaunchpadLayoutSupport {
         return sanitized(LaunchpadLayout(items: items))
     }
 
-    /// Drops duplicate item ids and caps the total count, so a corrupted or
-    /// runaway blob can never grow the grid without bound.
+    static let maximumFolderNameLength = 40
+
+    /// Drops duplicate item ids, caps the total count, and trims/clamps
+    /// every folder's name, so a corrupted or runaway blob can never grow
+    /// the grid or a name without bound.
     static func sanitized(_ layout: LaunchpadLayout) -> LaunchpadLayout {
         var seen = Set<String>()
-        let items = layout.items.prefix(maximumItems).filter { seen.insert($0.id).inserted }
+        let items = layout.items.prefix(maximumItems).filter { seen.insert($0.id).inserted }.map { item -> LaunchpadItem in
+            guard case .folder(var folder) = item else { return item }
+            folder.name = String(folder.name.components(separatedBy: .newlines).joined(separator: " ")
+                .trimmingCharacters(in: .whitespaces).prefix(maximumFolderNameLength))
+            return .folder(folder)
+        }
         return LaunchpadLayout(items: Array(items))
+    }
+
+    /// Renames a folder in place. An empty or all-whitespace name is
+    /// ignored rather than leaving a folder with no title at all.
+    static func renamingFolder(_ layout: LaunchpadLayout, folderID: UUID, name: String) -> LaunchpadLayout {
+        guard let index = layout.items.firstIndex(where: { $0.id == folderID.uuidString }),
+              case .folder(var folder) = layout.items[index],
+              !name.trimmingCharacters(in: .whitespaces).isEmpty
+        else { return layout }
+        folder.name = name
+        var items = layout.items
+        items[index] = .folder(folder)
+        return sanitized(LaunchpadLayout(items: items))
     }
 
     /// Moves `itemID` to just before `beforeItemID`, or to the end when
