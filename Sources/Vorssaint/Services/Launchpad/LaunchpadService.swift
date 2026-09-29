@@ -16,6 +16,16 @@ private final class LaunchpadPanel: OverlayPanel {
     override var canBecomeKey: Bool { true }
 }
 
+/// An arrow key with the command modifier's state, or Return — read off a
+/// raw `NSEvent` here rather than through SwiftUI's `.onKeyPress`, since a
+/// focused `TextField` (the search field is always focused) claims arrow
+/// keys for its own cursor before SwiftUI's key-press modifiers would ever
+/// see them. `CommandBarService` handles its own arrow keys the same way.
+enum LaunchpadKeyAction {
+    case arrow(LaunchpadArrowDirection, commandHeld: Bool)
+    case launch
+}
+
 /// Owns Launchpad Classic's global hotkey and its full-screen panel.
 final class LaunchpadService {
     static let shared = LaunchpadService()
@@ -28,6 +38,7 @@ final class LaunchpadService {
     /// fires on the very first open — this is what refreshes the layout and
     /// search focus on every open after that.
     let didShow = PassthroughSubject<Void, Never>()
+    let keyAction = PassthroughSubject<LaunchpadKeyAction, Never>()
 
     private let hotkey = QuickToolHotkey(id: 61)
     private var panel: NSPanel?
@@ -111,9 +122,29 @@ final class LaunchpadService {
     private func installMonitors() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, let panel = self.panel, event.window === panel else { return event }
-            guard Int(event.keyCode) == kVK_Escape else { return event }
-            self.hide()
-            return nil
+            let commandHeld = event.modifierFlags.contains(.command)
+            switch Int(event.keyCode) {
+            case kVK_Escape:
+                self.hide()
+                return nil
+            case kVK_LeftArrow:
+                self.keyAction.send(.arrow(.left, commandHeld: commandHeld))
+                return nil
+            case kVK_RightArrow:
+                self.keyAction.send(.arrow(.right, commandHeld: commandHeld))
+                return nil
+            case kVK_UpArrow:
+                self.keyAction.send(.arrow(.up, commandHeld: commandHeld))
+                return nil
+            case kVK_DownArrow:
+                self.keyAction.send(.arrow(.down, commandHeld: commandHeld))
+                return nil
+            case kVK_Return, kVK_ANSI_KeypadEnter:
+                self.keyAction.send(.launch)
+                return nil
+            default:
+                return event
+            }
         }
         swipeCumulativeX = 0
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
