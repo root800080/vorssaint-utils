@@ -90,5 +90,18 @@ enum LaunchpadAppSupportTests {
                      "a position past the row clamps to the last page")
         suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 50, width: 100, pageCount: 0) == 0,
                      "no pages at all reads as page zero rather than crashing on the divide")
+
+        suite.expect(LaunchpadPinchSupport.isPinchClose(startSpread: 0.5, endSpread: 0.2, duration: 0.3),
+                     "a fast, large shrink reads as a deliberate pinch close")
+        suite.expect(!LaunchpadPinchSupport.isPinchClose(startSpread: 0.5, endSpread: 0.48, duration: 0.3),
+                     "a shrink this small is resting fingers, not a pinch")
+        suite.expect(!LaunchpadPinchSupport.isPinchClose(startSpread: 0.5, endSpread: 0.2, duration: 1.2),
+                     "a shrink this slow is fingers drifting apart, not a deliberate close")
+        suite.expect(!LaunchpadPinchSupport.isPinchClose(startSpread: 0.5, endSpread: 0.6, duration: 0.3),
+                     "a growing spread is an open, not a close")
+        suite.expect(!LaunchpadPinchSupport.isPinchClose(startSpread: 0, endSpread: 0, duration: 0.3),
+                     "a zero starting spread never divides by zero into a false close")
+        suite.expect(!LaunchpadPinchSupport.isPinchClose(startSpread: 0.5, endSpread: 0.2, duration: 0),
+                     "a zero duration is not a real gesture")
     }
 }

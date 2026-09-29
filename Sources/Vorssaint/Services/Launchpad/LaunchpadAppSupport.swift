@@ -112,3 +112,26 @@ enum LaunchpadPagingSupport {
         return min(Int(fraction * CGFloat(pageCount)), pageCount - 1)
     }
 }
+
+/// The four-finger pinch that opened the real Launchpad, detected the same
+/// way any multitouch utility reads a pinch: the touches' spread (mean
+/// distance from their centroid) shrinking quickly. `MiddleClickSupport`'s
+/// own tap detector already treats any spread change past 0.04 as a pinch to
+/// stay clear of — this asks for a shrink well past that, so a deliberate
+/// close is never confused with a resting-finger tap and vice versa.
+enum LaunchpadPinchSupport {
+    /// A pinch this slow is fingers resting or drifting apart, not a
+    /// deliberate close.
+    static let maximumDuration: TimeInterval = 0.6
+    /// The spread must shrink by at least this fraction of where it started
+    /// to count as a close.
+    static let minimumShrinkFraction: Float = 0.3
+
+    static func isPinchClose(startSpread: Float, endSpread: Float, duration: TimeInterval) -> Bool {
+        guard startSpread > 0, endSpread.isFinite, duration.isFinite,
+              duration > 0, duration <= maximumDuration
+        else { return false }
+        let shrink = (startSpread - endSpread) / startSpread
+        return shrink >= minimumShrinkFraction
+    }
+}
