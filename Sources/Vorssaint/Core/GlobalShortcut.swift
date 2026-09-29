@@ -230,6 +230,9 @@ struct GlobalShortcut: Equatable, Hashable {
     // narrow space some layouts put on that combination.
     static let commandBarDefault = GlobalShortcut(keyCode: Int64(kVK_Space),
                                                   modifiers: [.option])
+    // G for grid, on the same free control-option-command layer.
+    static let launchpadDefault = GlobalShortcut(keyCode: Int64(kVK_ANSI_G),
+                                                 modifiers: [.control, .option, .command])
     // Next to the screenshot's 4, on the same free control-option-command
     // layer, matching how the system numbers its own capture keys.
     static let screenRecorderDefault = GlobalShortcut(keyCode: Int64(kVK_ANSI_5),
