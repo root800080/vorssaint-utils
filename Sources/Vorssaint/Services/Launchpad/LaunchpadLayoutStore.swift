@@ -23,10 +23,4 @@ enum LaunchpadLayoutStore {
         let encoded = (try? encoder.encode(LaunchpadLayoutSupport.sanitized(layout))) ?? Data()
         defaults.set(encoded, forKey: DefaultsKey.launchpadLayout)
     }
-
-    /// The stored layout reconciled against whatever is actually installed
-    /// right now — what the grid should show on this open.
-    static func current(apps: [LaunchpadApp], in defaults: UserDefaults = .standard) -> LaunchpadLayout {
-        LaunchpadLayoutSupport.applyingCatalog(stored(in: defaults), knownAppIDs: Set(apps.map(\.id)))
-    }
 }

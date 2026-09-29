@@ -83,6 +83,29 @@ enum LaunchpadLayoutSupport {
         return LaunchpadLayout(items: Array(items))
     }
 
+    /// The arrangement a fresh install starts from: every app whose real
+    /// filesystem location is macOS's own `Utilities` subfolder grouped into
+    /// one folder (matching the native Launchpad's own default), everything
+    /// else loose in alphabetical order. Only used the very first time —
+    /// once a layout is saved, `applyingCatalog` takes over and never
+    /// re-groups a newly installed app into an existing folder on its own.
+    static func defaultLayout(for apps: [LaunchpadApp], utilitiesFolderName: String) -> LaunchpadLayout {
+        let sorted = apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let utilities = sorted.filter(isNativeUtility)
+        let everythingElse = sorted.filter { !isNativeUtility($0) }
+        var items = everythingElse.map { LaunchpadItem.app($0.id) }
+        if utilities.count >= 2 {
+            items.append(.folder(LaunchpadFolder(id: UUID(), name: utilitiesFolderName, appIDs: utilities.map(\.id))))
+        } else {
+            items.append(contentsOf: utilities.map { .app($0.id) })
+        }
+        return sanitized(LaunchpadLayout(items: items))
+    }
+
+    private static func isNativeUtility(_ app: LaunchpadApp) -> Bool {
+        URL(fileURLWithPath: app.path).deletingLastPathComponent().lastPathComponent == "Utilities"
+    }
+
     /// Renames a folder in place. An empty or all-whitespace name is
     /// ignored rather than leaving a folder with no title at all.
     static func renamingFolder(_ layout: LaunchpadLayout, folderID: UUID, name: String) -> LaunchpadLayout {

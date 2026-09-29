@@ -91,6 +91,7 @@ struct LaunchpadView: View {
         .onChange(of: page) { selectedIndex = nil }
         .onChange(of: hoveringLeadingEdge) { setEdgePaging(active: hoveringLeadingEdge, step: -1) }
         .onChange(of: hoveringTrailingEdge) { setEdgePaging(active: hoveringTrailingEdge, step: 1) }
+        .onChange(of: catalog.apps) { materializeDefaultLayoutIfNeeded() }
         .onReceive(LaunchpadService.shared.pageStep) { step in
             guard let target = LaunchpadPagingSupport.targetPage(current: page, step: step, pageCount: pages.count) else { return }
             withAnimation(.easeOut(duration: 0.25)) { page = target }
@@ -299,6 +300,18 @@ struct LaunchpadView: View {
         searchFocused = true
         edgePagingTimer?.invalidate()
         edgePagingTimer = nil
+        materializeDefaultLayoutIfNeeded()
+    }
+
+    /// A layout that was never customized starts from the native Utilities
+    /// grouping instead of a flat list, the very first time real apps are
+    /// known — saved once so it becomes the real stored layout from then on,
+    /// not recomputed (with a fresh folder id) on every later open.
+    private func materializeDefaultLayoutIfNeeded() {
+        guard layout.items.isEmpty, !apps.isEmpty else { return }
+        let fresh = LaunchpadLayoutSupport.defaultLayout(for: apps, utilitiesFolderName: text.utilitiesFolderName)
+        layout = fresh
+        LaunchpadLayoutStore.save(fresh)
     }
 
     private func edgePagingZone(step: Int, isTargeted: Binding<Bool>) -> some View {

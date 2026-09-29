@@ -10,6 +10,7 @@ struct LaunchpadStrings {
     let searchPlaceholder: String
     let shortcutToggle: String
     let newFolderDefaultName: String
+    let utilitiesFolderName: String
     let resetLayoutButton: String
     let resetLayoutConfirmTitle: String
     let resetLayoutConfirmMessage: String
@@ -45,6 +46,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Search Applications",
         shortcutToggle: "Global shortcut to open Launchpad",
         newFolderDefaultName: "New Folder",
+        utilitiesFolderName: "Utilities",
         resetLayoutButton: "Reset",
         resetLayoutConfirmTitle: "Reset layout",
         resetLayoutConfirmMessage: "Restore every app to its default order and remove your folders? This can’t be undone.")
@@ -56,6 +58,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Buscar Aplicativos",
         shortcutToggle: "Atalho global para abrir o Launchpad",
         newFolderDefaultName: "Nova Pasta",
+        utilitiesFolderName: "Utilitários",
         resetLayoutButton: "Redefinir",
         resetLayoutConfirmTitle: "Redefinir layout",
         resetLayoutConfirmMessage: "Restaurar todos os apps para a ordem padrão e remover suas pastas? Isso não pode ser desfeito.")
@@ -67,6 +70,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Uygulama Ara",
         shortcutToggle: "Launchpad’i açmak için genel kısayol",
         newFolderDefaultName: "Yeni Klasör",
+        utilitiesFolderName: "Yardımcı Programlar",
         resetLayoutButton: "Sıfırla",
         resetLayoutConfirmTitle: "Düzeni sıfırla",
         resetLayoutConfirmMessage: "Tüm uygulamalar varsayılan sıraya döndürülsün ve klasörleriniz kaldırılsın mı? Bu geri alınamaz.")
@@ -78,6 +82,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Поиск приложений",
         shortcutToggle: "Глобальное сочетание клавиш для открытия Launchpad",
         newFolderDefaultName: "Новая папка",
+        utilitiesFolderName: "Утилиты",
         resetLayoutButton: "Сбросить",
         resetLayoutConfirmTitle: "Сбросить раскладку",
         resetLayoutConfirmMessage: "Восстановить порядок приложений по умолчанию и удалить папки? Это нельзя отменить.")
@@ -89,6 +94,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Buscar aplicaciones",
         shortcutToggle: "Atajo global para abrir Launchpad",
         newFolderDefaultName: "Nueva carpeta",
+        utilitiesFolderName: "Utilidades",
         resetLayoutButton: "Restablecer",
         resetLayoutConfirmTitle: "Restablecer diseño",
         resetLayoutConfirmMessage: "¿Restaurar todas las apps a su orden predeterminado y eliminar tus carpetas? Esto no se puede deshacer.")
@@ -100,6 +106,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Hľadať aplikácie",
         shortcutToggle: "Globálna skratka na otvorenie Launchpadu",
         newFolderDefaultName: "Nový priečinok",
+        utilitiesFolderName: "Pomôcky",
         resetLayoutButton: "Obnoviť",
         resetLayoutConfirmTitle: "Obnoviť rozloženie",
         resetLayoutConfirmMessage: "Obnoviť predvolené poradie všetkých aplikácií a odstrániť priečinky? Toto sa nedá vrátiť späť.")
@@ -111,6 +118,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Programme suchen",
         shortcutToggle: "Globale Tastenkombination zum Öffnen von Launchpad",
         newFolderDefaultName: "Neuer Ordner",
+        utilitiesFolderName: "Dienstprogramme",
         resetLayoutButton: "Zurücksetzen",
         resetLayoutConfirmTitle: "Layout zurücksetzen",
         resetLayoutConfirmMessage: "Alle Apps auf die Standardreihenfolge zurücksetzen und deine Ordner entfernen? Dies kann nicht rückgängig gemacht werden.")
@@ -122,6 +130,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Rechercher des applications",
         shortcutToggle: "Raccourci global pour ouvrir Launchpad",
         newFolderDefaultName: "Nouveau dossier",
+        utilitiesFolderName: "Utilitaires",
         resetLayoutButton: "Réinitialiser",
         resetLayoutConfirmTitle: "Réinitialiser la disposition",
         resetLayoutConfirmMessage: "Restaurer l’ordre par défaut de toutes les apps et supprimer vos dossiers\u{202F}? Cette action est irréversible.")
@@ -133,6 +142,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Cerca applicazioni",
         shortcutToggle: "Scorciatoia globale per aprire Launchpad",
         newFolderDefaultName: "Nuova cartella",
+        utilitiesFolderName: "Utility",
         resetLayoutButton: "Ripristina",
         resetLayoutConfirmTitle: "Ripristina disposizione",
         resetLayoutConfirmMessage: "Ripristinare l’ordine predefinito di tutte le app e rimuovere le cartelle? Questa azione non può essere annullata.")
@@ -144,6 +154,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "アプリケーションを検索",
         shortcutToggle: "Launchpadを開くグローバルショートカット",
         newFolderDefaultName: "新規フォルダ",
+        utilitiesFolderName: "ユーティリティ",
         resetLayoutButton: "リセット",
         resetLayoutConfirmTitle: "レイアウトをリセット",
         resetLayoutConfirmMessage: "すべてのアプリを初期の並び順に戻し、フォルダを削除しますか？この操作は元に戻せません。")
@@ -155,6 +166,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "응용 프로그램 검색",
         shortcutToggle: "Launchpad를 여는 전역 단축키",
         newFolderDefaultName: "새로운 폴더",
+        utilitiesFolderName: "유틸리티",
         resetLayoutButton: "재설정",
         resetLayoutConfirmTitle: "레이아웃 재설정",
         resetLayoutConfirmMessage: "모든 앱을 기본 순서로 복원하고 폴더를 제거하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
@@ -166,6 +178,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "Пошук програм",
         shortcutToggle: "Глобальне сполучення клавіш для відкриття Launchpad",
         newFolderDefaultName: "Нова папка",
+        utilitiesFolderName: "Утиліти",
         resetLayoutButton: "Скинути",
         resetLayoutConfirmTitle: "Скинути розташування",
         resetLayoutConfirmMessage: "Відновити типовий порядок усіх застосунків і видалити ваші папки? Це неможливо скасувати.")
@@ -177,6 +190,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "搜索应用程序",
         shortcutToggle: "打开 Launchpad 的全局快捷键",
         newFolderDefaultName: "新建文件夹",
+        utilitiesFolderName: "实用工具",
         resetLayoutButton: "重置",
         resetLayoutConfirmTitle: "重置布局",
         resetLayoutConfirmMessage: "将所有应用恢复为默认顺序并删除您的文件夹？此操作无法撤销。")
@@ -188,6 +202,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "搜尋應用程式",
         shortcutToggle: "打開 Launchpad 的全域快速鍵",
         newFolderDefaultName: "新資料夾",
+        utilitiesFolderName: "工具程式",
         resetLayoutButton: "重設",
         resetLayoutConfirmTitle: "重設版面配置",
         resetLayoutConfirmMessage: "將所有應用程式還原為預設順序並移除您的檔案夾？此操作無法復原。")
@@ -199,6 +214,7 @@ extension LaunchpadStrings {
         searchPlaceholder: "搜尋應用程式",
         shortcutToggle: "打開 Launchpad 的全域快速鍵",
         newFolderDefaultName: "新資料夾",
+        utilitiesFolderName: "工具程式",
         resetLayoutButton: "重設",
         resetLayoutConfirmTitle: "重設版面配置",
         resetLayoutConfirmMessage: "將所有應用程式還原為預設順序並移除您的資料夾？此操作無法復原。")
