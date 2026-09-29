@@ -26,7 +26,17 @@ enum AgentWaitSupport {
         let name: String?
         let cwd: String?
         let modifiedAt: UInt64?
+        let waitingFor: String?
     }
+
+    /// A command screen like `/config` or `/model` also leaves the session
+    /// file reading `"waiting"`, with this value in `waitingFor` instead of
+    /// the ones a real prompt writes (`"permission prompt"`, `"input
+    /// needed"`, and others) — the person already has that screen open, so a
+    /// notice for it would tell them about the very thing they are looking
+    /// at. A few dialogs Claude Code opens on its own also write this value
+    /// and are left out along with it.
+    static let dialogOpenWaitingFor = "dialog open"
 
     /// The CLI's own name for the session, or the last path component of its
     /// working directory when the name is missing or blank.
@@ -46,7 +56,8 @@ enum AgentWaitSupport {
     static func waitingSessions(_ statuses: [SessionStatus],
                                 processStartTime: (Int32) -> UInt64?) -> [AgentWaitingSession] {
         statuses.compactMap { status -> AgentWaitingSession? in
-            guard status.status == "waiting", let pid = status.pid,
+            guard status.status == "waiting", status.waitingFor != dialogOpenWaitingFor,
+                  let pid = status.pid,
                   let modifiedAt = status.modifiedAt,
                   let startedAt = processStartTime(pid), startedAt <= modifiedAt,
                   let name = sessionName(status) else { return nil }

@@ -11,12 +11,12 @@ enum AgentWaitTests {
         // so a start no later than 100 is this same process.
         let startedBeforeFile: (Int32) -> UInt64? = { $0 == 1 ? 50 : nil }
 
-        let waiting = Status(status: "waiting", pid: 1, name: "vorssaint-utils-bf", cwd: "/tmp/vorssaint-utils", modifiedAt: 100)
-        let busy = Status(status: "busy", pid: 2, name: "other", cwd: "/tmp/other", modifiedAt: 100)
-        let idle = Status(status: "idle", pid: 3, name: "third", cwd: "/tmp/third", modifiedAt: 100)
-        let dead = Status(status: "waiting", pid: 4, name: "dead", cwd: "/tmp/dead", modifiedAt: 100)
-        let unnamed = Status(status: "waiting", pid: 1, name: nil, cwd: "/Users/me/Documents/some-project", modifiedAt: 100)
-        let blank = Status(status: "waiting", pid: 1, name: "", cwd: nil, modifiedAt: 100)
+        let waiting = Status(status: "waiting", pid: 1, name: "vorssaint-utils-bf", cwd: "/tmp/vorssaint-utils", modifiedAt: 100, waitingFor: "permission prompt")
+        let busy = Status(status: "busy", pid: 2, name: "other", cwd: "/tmp/other", modifiedAt: 100, waitingFor: nil)
+        let idle = Status(status: "idle", pid: 3, name: "third", cwd: "/tmp/third", modifiedAt: 100, waitingFor: nil)
+        let dead = Status(status: "waiting", pid: 4, name: "dead", cwd: "/tmp/dead", modifiedAt: 100, waitingFor: nil)
+        let unnamed = Status(status: "waiting", pid: 1, name: nil, cwd: "/Users/me/Documents/some-project", modifiedAt: 100, waitingFor: nil)
+        let blank = Status(status: "waiting", pid: 1, name: "", cwd: nil, modifiedAt: 100, waitingFor: nil)
 
         suite.expect(AgentWaitSupport.waitingSessions([waiting, busy, idle], processStartTime: startedBeforeFile)
                      == [AgentWaitingSession(id: 1, name: "vorssaint-utils-bf")],
@@ -27,7 +27,7 @@ enum AgentWaitTests {
 
         // macOS handed pid 1 to an unrelated process that started at 150,
         // after this file was last written at 100 — it cannot be the writer.
-        let reused = Status(status: "waiting", pid: 1, name: "reused", cwd: nil, modifiedAt: 100)
+        let reused = Status(status: "waiting", pid: 1, name: "reused", cwd: nil, modifiedAt: 100, waitingFor: nil)
         suite.expect(AgentWaitSupport.waitingSessions([reused]) { $0 == 1 ? 150 : nil }.isEmpty,
                      "a pid reused by a newer process after the file was last written is not reported")
 
@@ -38,13 +38,24 @@ enum AgentWaitTests {
         suite.expect(AgentWaitSupport.waitingSessions([blank], processStartTime: startedBeforeFile).isEmpty,
                      "a blank name with no working directory to fall back to is skipped rather than shown empty")
 
-        let second = Status(status: "waiting", pid: 1, name: "second", cwd: nil, modifiedAt: 100)
-        let first = Status(status: "waiting", pid: 1, name: "first", cwd: nil, modifiedAt: 100)
+        let second = Status(status: "waiting", pid: 1, name: "second", cwd: nil, modifiedAt: 100, waitingFor: nil)
+        let first = Status(status: "waiting", pid: 1, name: "first", cwd: nil, modifiedAt: 100, waitingFor: nil)
         suite.expect(AgentWaitSupport.waitingSessions([second, first], processStartTime: startedBeforeFile).map(\.name)
                      == ["first", "second"],
                      "multiple waiting sessions are sorted by name")
 
-        suite.expect(AgentWaitSupport.sessionName(Status(status: nil, pid: nil, name: "", cwd: "/a/b/c", modifiedAt: nil)) == "c",
+        // A command screen like /config or /model also leaves the session
+        // reading "waiting", but with this waitingFor instead of a real
+        // prompt's — the person already has that screen open.
+        let dialogOpen = Status(status: "waiting", pid: 1, name: "dialog", cwd: nil, modifiedAt: 100, waitingFor: "dialog open")
+        suite.expect(AgentWaitSupport.waitingSessions([dialogOpen], processStartTime: startedBeforeFile).isEmpty,
+                     "a command screen left open is not reported as waiting on a reply")
+        let inputNeeded = Status(status: "waiting", pid: 1, name: "input", cwd: nil, modifiedAt: 100, waitingFor: "input needed")
+        suite.expect(AgentWaitSupport.waitingSessions([inputNeeded], processStartTime: startedBeforeFile)
+                     == [AgentWaitingSession(id: 1, name: "input")],
+                     "a real prompt's own waitingFor value is still reported")
+
+        suite.expect(AgentWaitSupport.sessionName(Status(status: nil, pid: nil, name: "", cwd: "/a/b/c", modifiedAt: nil, waitingFor: nil)) == "c",
                      "an empty name is treated the same as a missing one")
 
         let a = AgentWaitingSession(id: 1, name: "a")

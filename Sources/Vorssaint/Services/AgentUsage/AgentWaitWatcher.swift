@@ -56,7 +56,6 @@ final class AgentWaitWatcher: ObservableObject {
         let watcher = self.watcher ?? AgentLogWatcher(queue: queue) { [weak self] _, _ in self?.rescan() }
         self.watcher = watcher
         _ = watcher.start(Self.roots.map(\.path))
-        startPolling()
     }
 
     func stop() {
@@ -64,22 +63,29 @@ final class AgentWaitWatcher: ObservableObject {
         running = false
         generation &+= 1
         watcher?.stop()
-        poller?.cancel()
-        poller = nil
+        stopPolling()
         waitingSince.removeAll()
         if !waiting.isEmpty { waiting = [] }
     }
 
     /// A killed process leaves its session file's contents unchanged, so no
-    /// file event ever follows to notice it is gone. This is the only thing
-    /// that clears a dead process out of `waiting` on its own.
-    private func startPolling() {
-        poller?.cancel()
+    /// file event ever follows to notice it is gone — this is the only thing
+    /// that clears a dead process out of `waiting` on its own. Only worth
+    /// doing while a process is actually being tracked, so this starts and
+    /// stops with the waiting list itself rather than running for as long
+    /// as the feature is on.
+    private func startPollingIfNeeded() {
+        guard poller == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + Self.livenessPoll, repeating: Self.livenessPoll, leeway: .milliseconds(500))
         timer.setEventHandler { [weak self] in self?.rescan() }
         timer.resume()
         poller = timer
+    }
+
+    private func stopPolling() {
+        poller?.cancel()
+        poller = nil
     }
 
     /// Runs on `queue`. Reads every session file fresh each time: the
@@ -95,12 +101,19 @@ final class AgentWaitWatcher: ObservableObject {
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let modified = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
                 else { return nil }
+                // A session run in a container or virtual machine that
+                // shares this folder names a process this Mac cannot see —
+                // the same check AgentSessionRegistry makes on this same
+                // field, so a stale record cannot collide with an unrelated
+                // host process that happens to reuse its pid.
+                if let domain = json["pidDomain"] as? String, domain != "darwin" { return nil }
                 return AgentWaitSupport.SessionStatus(
                     status: json["status"] as? String,
                     pid: (json["pid"] as? NSNumber)?.int32Value,
                     name: json["name"] as? String,
                     cwd: json["cwd"] as? String,
-                    modifiedAt: UInt64(modified.timeIntervalSince1970 * 1_000_000))
+                    modifiedAt: UInt64(modified.timeIntervalSince1970 * 1_000_000),
+                    waitingFor: json["waitingFor"] as? String)
             }
         }
         let sorted = AgentWaitSupport.waitingSessions(statuses) { KillProcessService.startTime(for: $0) }
@@ -108,6 +121,7 @@ final class AgentWaitWatcher: ObservableObject {
             guard let self, self.running, self.generation == generation, self.waiting != sorted else { return }
             let newlyWaiting = AgentWaitSupport.newlyWaitingSessions(current: sorted, previous: self.waiting)
             self.waiting = sorted
+            if sorted.isEmpty { self.stopPolling() } else { self.startPollingIfNeeded() }
             let stillWaitingIDs = Set(sorted.map(\.id))
             self.waitingSince = self.waitingSince.filter { stillWaitingIDs.contains($0.key) }
             let now = Date()
