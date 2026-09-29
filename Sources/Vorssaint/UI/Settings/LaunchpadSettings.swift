@@ -6,6 +6,7 @@ import SwiftUI
 struct LaunchpadSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @AppStorage(DefaultsKey.launchpadShortcutEnabled) private var shortcutEnabled = false
+    @AppStorage(DefaultsKey.launchpadPinchEnabled) private var pinchEnabled = false
     @State private var showingResetConfirm = false
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
@@ -23,6 +24,9 @@ struct LaunchpadSettings: View {
                 ShortcutPreferenceRow(role: .launchpad, isEnabled: shortcutEnabled, symbolName: "keyboard") {
                     LaunchpadService.shared.syncWithPreferences()
                 }
+
+                Toggle(text.pinchToggle, isOn: $pinchEnabled)
+                    .onChange(of: pinchEnabled) { LaunchpadService.shared.syncWithPreferences() }
 
                 Button(text.resetLayoutButton) { showingResetConfirm = true }
                     .confirmationDialog(

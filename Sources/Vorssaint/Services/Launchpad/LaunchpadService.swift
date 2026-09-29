@@ -46,6 +46,17 @@ final class LaunchpadService {
     private var scrollMonitor: Any?
     private var swipeCumulativeX: CGFloat = 0
 
+    /// The four-finger pinch that opens the panel. Runs independently of the
+    /// hotkey's own enabled state and needs no Accessibility permission: it
+    /// only reads raw contacts, unlike `MiddleClickService`'s tap, which also
+    /// synthesizes clicks through an event tap.
+    private let pinchQueue = DispatchQueue(label: "com.vorssaint.utils.launchpad.pinch", qos: .userInteractive)
+    private var pinchDeviceList: CFArray?
+    private let pinchStateLock = NSLock()
+    private var pinchStartSpread: Float?
+    private var pinchStartUptime: TimeInterval?
+    private var pinchMinSpread: Float?
+
     private init() {
         hotkey.onPress = { [weak self] in self?.toggle() }
     }
@@ -55,12 +66,76 @@ final class LaunchpadService {
         let enabled = available && UserDefaults.standard.bool(forKey: DefaultsKey.launchpadShortcutEnabled)
         let shortcut = GlobalShortcut.saved(for: DefaultsKey.launchpadShortcut, fallback: .launchpadDefault)
         _ = hotkey.sync(enabled: enabled, shortcut: shortcut, storageKey: DefaultsKey.launchpadShortcut)
+        let pinchEnabled = available && UserDefaults.standard.bool(forKey: DefaultsKey.launchpadPinchEnabled)
+        if pinchEnabled { startPinchTracking() } else { stopPinchTracking() }
         if !available { hide() }
     }
 
     func suspend() {
         hotkey.unregister()
+        stopPinchTracking()
         hide()
+    }
+
+    // MARK: - Four-finger pinch to open
+
+    private func startPinchTracking() {
+        pinchQueue.async { [weak self] in
+            guard let self, self.pinchDeviceList == nil, Multitouch.available,
+                  let list = Multitouch.deviceList()
+            else { return }
+            self.pinchDeviceList = list
+            for index in 0..<CFArrayGetCount(list) {
+                guard let device = CFArrayGetValueAtIndex(list, index) else { continue }
+                Multitouch.register(UnsafeMutableRawPointer(mutating: device), launchpadPinchContactCallback)
+                Multitouch.start(UnsafeMutableRawPointer(mutating: device))
+            }
+        }
+    }
+
+    private func stopPinchTracking() {
+        pinchQueue.async { [weak self] in
+            guard let self, let list = self.pinchDeviceList else { return }
+            for index in 0..<CFArrayGetCount(list) {
+                guard let device = CFArrayGetValueAtIndex(list, index) else { continue }
+                Multitouch.stop(UnsafeMutableRawPointer(mutating: device))
+                Multitouch.register(UnsafeMutableRawPointer(mutating: device), nil)
+            }
+            self.pinchDeviceList = nil
+        }
+        pinchStateLock.withLock {
+            pinchStartSpread = nil
+            pinchStartUptime = nil
+            pinchMinSpread = nil
+        }
+    }
+
+    /// Runs on the multitouch callback thread. Tracks the shrinking spread
+    /// while four or more fingers rest on the pad and judges a close once
+    /// they lift, the same "evaluate on release" shape `MiddleClickService`
+    /// already uses for its own tap gesture.
+    fileprivate func pinchContactFrame(fingerCount count: Int, touches: UnsafeMutableRawPointer?) {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard count >= 4, let geometry = Multitouch.touchGeometry(touches: touches, count: count) else {
+            let closed: Bool = pinchStateLock.withLock {
+                defer { pinchStartSpread = nil; pinchStartUptime = nil; pinchMinSpread = nil }
+                guard let startSpread = pinchStartSpread, let startUptime = pinchStartUptime,
+                      let minSpread = pinchMinSpread else { return false }
+                return LaunchpadPinchSupport.isPinchClose(startSpread: startSpread, endSpread: minSpread,
+                                                          duration: now - startUptime)
+            }
+            if closed { DispatchQueue.main.async { [weak self] in self?.toggle() } }
+            return
+        }
+        pinchStateLock.withLock {
+            if pinchStartSpread == nil {
+                pinchStartSpread = geometry.spread
+                pinchStartUptime = now
+                pinchMinSpread = geometry.spread
+            } else {
+                pinchMinSpread = min(pinchMinSpread ?? geometry.spread, geometry.spread)
+            }
+        }
     }
 
     func toggle() {
@@ -166,4 +241,13 @@ final class LaunchpadService {
         keyMonitor = nil
         scrollMonitor = nil
     }
+}
+
+private func launchpadPinchContactCallback(_ device: UnsafeMutableRawPointer?,
+                                           _ touches: UnsafeMutableRawPointer?,
+                                           _ count: Int32,
+                                           _ timestamp: Double,
+                                           _ frame: Int32) -> Int32 {
+    LaunchpadService.shared.pinchContactFrame(fingerCount: Int(count), touches: touches)
+    return 0
 }
