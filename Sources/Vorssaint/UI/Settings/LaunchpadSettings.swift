@@ -6,54 +6,38 @@ import SwiftUI
 struct LaunchpadSettings: View {
     @ObservedObject private var l10n = L10n.shared
     @AppStorage(DefaultsKey.launchpadShortcutEnabled) private var shortcutEnabled = false
-    @AppStorage(DefaultsKey.launchpadShortcut) private var shortcutValue = GlobalShortcut.launchpadDefault.storageValue
-    @State private var message: String?
+    @State private var showingResetConfirm = false
 
     private var text: LaunchpadStrings { FeatureStrings.launchpad(l10n.language) }
 
     var body: some View {
         Form {
-            Text(text.hubDescription).font(.subheadline).foregroundStyle(.secondary)
+            Section {
+                Button(text.openButton) { LaunchpadService.shared.show() }
+                Text(text.hubDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            Button(text.openButton) { LaunchpadService.shared.show() }
-
-            switchRow("keyboard", text.shortcutTitle, isOn: $shortcutEnabled)
-                .onChange(of: shortcutEnabled) { LaunchpadService.shared.syncWithPreferences() }
-            if shortcutEnabled {
-                VStack(alignment: .leading, spacing: 4) {
-                    ShortcutRecorderButton(
-                        shortcut: GlobalShortcut(storageValue: shortcutValue) ?? .launchpadDefault,
-                        isEnabled: true,
-                        waitingTitle: l10n.s.shortcutPressKeys,
-                        emptyTitle: shortcutValue.isEmpty ? l10n.s.shortcutNone : nil,
-                        notCapturedAction: { message = l10n.s.shortcutNotCaptured },
-                        recordingChanged: { recording in if recording { message = nil } },
-                        invalidAction: { message = l10n.s.shortcutInvalid },
-                        captureAction: { newShortcut in
-                            shortcutValue = newShortcut.storageValue
-                            message = nil
-                            LaunchpadService.shared.syncWithPreferences()
-                        })
-                        .frame(width: 108)
-                    if let message {
-                        Text(message).font(.caption).foregroundStyle(.secondary)
-                    }
+                Toggle(text.shortcutToggle, isOn: $shortcutEnabled)
+                    .onChange(of: shortcutEnabled) { LaunchpadService.shared.syncWithPreferences() }
+                ShortcutPreferenceRow(role: .launchpad, isEnabled: shortcutEnabled, symbolName: "keyboard") {
+                    LaunchpadService.shared.syncWithPreferences()
                 }
-                .padding(.leading, settingsRowTextInset)
-            }
 
-            Button(role: .destructive) {
-                UserDefaults.standard.removeObject(forKey: DefaultsKey.launchpadLayout)
-            } label: {
-                Text(text.resetLayoutButton)
+                Button(text.resetLayoutButton) { showingResetConfirm = true }
+                    .confirmationDialog(
+                        text.resetLayoutConfirmTitle,
+                        isPresented: $showingResetConfirm,
+                        titleVisibility: .visible
+                    ) {
+                        Button(text.resetLayoutConfirmTitle, role: .destructive) {
+                            UserDefaults.standard.removeObject(forKey: DefaultsKey.launchpadLayout)
+                        }
+                    } message: {
+                        Text(text.resetLayoutConfirmMessage)
+                    }
             }
         }
         .onAppear { LaunchpadService.shared.syncWithPreferences() }
-    }
-
-    private func switchRow(_ symbol: String, _ title: String, isOn: Binding<Bool>) -> some View {
-        SettingsRow(symbol: symbol, title: title) {
-            Toggle(title, isOn: isOn).labelsHidden().toggleStyle(.switch)
-        }
     }
 }

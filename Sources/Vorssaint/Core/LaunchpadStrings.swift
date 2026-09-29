@@ -8,9 +8,11 @@ struct LaunchpadStrings {
     let hubDescription: String
     let openButton: String
     let searchPlaceholder: String
-    let shortcutTitle: String
+    let shortcutToggle: String
     let newFolderDefaultName: String
     let resetLayoutButton: String
+    let resetLayoutConfirmTitle: String
+    let resetLayoutConfirmMessage: String
 }
 
 extension FeatureStrings {
@@ -41,133 +43,163 @@ extension LaunchpadStrings {
         hubDescription: "Open a full-screen grid of every installed app, like the original Launchpad.",
         openButton: "Open Launchpad",
         searchPlaceholder: "Search Applications",
-        shortcutTitle: "Shortcut",
+        shortcutToggle: "Global shortcut to open Launchpad",
         newFolderDefaultName: "New Folder",
-        resetLayoutButton: "Reset Layout")
+        resetLayoutButton: "Reset",
+        resetLayoutConfirmTitle: "Reset layout",
+        resetLayoutConfirmMessage: "Restore every app to its default order and remove your folders? This can’t be undone.")
 
     static let ptBR = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Abra uma grade em tela cheia com todos os apps instalados, como o Launchpad original.",
         openButton: "Abrir Launchpad",
         searchPlaceholder: "Buscar Aplicativos",
-        shortcutTitle: "Atalho",
+        shortcutToggle: "Atalho global para abrir o Launchpad",
         newFolderDefaultName: "Nova Pasta",
-        resetLayoutButton: "Redefinir Layout")
+        resetLayoutButton: "Redefinir",
+        resetLayoutConfirmTitle: "Redefinir layout",
+        resetLayoutConfirmMessage: "Restaurar todos os apps para a ordem padrão e remover suas pastas? Isso não pode ser desfeito.")
 
     static let tr = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Orijinal Launchpad gibi, yüklü tüm uygulamaların tam ekran bir ızgarasını açar.",
         openButton: "Launchpad’i Aç",
         searchPlaceholder: "Uygulama Ara",
-        shortcutTitle: "Kısayol",
+        shortcutToggle: "Launchpad’i açmak için genel kısayol",
         newFolderDefaultName: "Yeni Klasör",
-        resetLayoutButton: "Düzeni Sıfırla")
+        resetLayoutButton: "Sıfırla",
+        resetLayoutConfirmTitle: "Düzeni sıfırla",
+        resetLayoutConfirmMessage: "Tüm uygulamalar varsayılan sıraya döndürülsün ve klasörleriniz kaldırılsın mı? Bu geri alınamaz.")
 
     static let ru = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Открывает полноэкранную сетку всех установленных приложений, как в оригинальном Launchpad.",
         openButton: "Открыть Launchpad",
         searchPlaceholder: "Поиск приложений",
-        shortcutTitle: "Сочетание клавиш",
+        shortcutToggle: "Глобальное сочетание клавиш для открытия Launchpad",
         newFolderDefaultName: "Новая папка",
-        resetLayoutButton: "Сбросить раскладку")
+        resetLayoutButton: "Сбросить",
+        resetLayoutConfirmTitle: "Сбросить раскладку",
+        resetLayoutConfirmMessage: "Восстановить порядок приложений по умолчанию и удалить папки? Это нельзя отменить.")
 
     static let es = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Abre una cuadrícula a pantalla completa con todas las apps instaladas, como el Launchpad original.",
         openButton: "Abrir Launchpad",
         searchPlaceholder: "Buscar aplicaciones",
-        shortcutTitle: "Atajo",
+        shortcutToggle: "Atajo global para abrir Launchpad",
         newFolderDefaultName: "Nueva carpeta",
-        resetLayoutButton: "Restablecer diseño")
+        resetLayoutButton: "Restablecer",
+        resetLayoutConfirmTitle: "Restablecer diseño",
+        resetLayoutConfirmMessage: "¿Restaurar todas las apps a su orden predeterminado y eliminar tus carpetas? Esto no se puede deshacer.")
 
     static let sk = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Otvorí celoobrazovkovú mriežku všetkých nainštalovaných aplikácií, podobne ako pôvodný Launchpad.",
         openButton: "Otvoriť Launchpad",
         searchPlaceholder: "Hľadať aplikácie",
-        shortcutTitle: "Skratka",
+        shortcutToggle: "Globálna skratka na otvorenie Launchpadu",
         newFolderDefaultName: "Nový priečinok",
-        resetLayoutButton: "Obnoviť rozloženie")
+        resetLayoutButton: "Obnoviť",
+        resetLayoutConfirmTitle: "Obnoviť rozloženie",
+        resetLayoutConfirmMessage: "Obnoviť predvolené poradie všetkých aplikácií a odstrániť priečinky? Toto sa nedá vrátiť späť.")
 
     static let de = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Öffnet ein Vollbildraster aller installierten Apps, wie das ursprüngliche Launchpad.",
         openButton: "Launchpad öffnen",
         searchPlaceholder: "Programme suchen",
-        shortcutTitle: "Tastenkombination",
+        shortcutToggle: "Globale Tastenkombination zum Öffnen von Launchpad",
         newFolderDefaultName: "Neuer Ordner",
-        resetLayoutButton: "Layout zurücksetzen")
+        resetLayoutButton: "Zurücksetzen",
+        resetLayoutConfirmTitle: "Layout zurücksetzen",
+        resetLayoutConfirmMessage: "Alle Apps auf die Standardreihenfolge zurücksetzen und deine Ordner entfernen? Dies kann nicht rückgängig gemacht werden.")
 
     static let fr = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Ouvre une grille plein écran de toutes les apps installées, comme le Launchpad d’origine.",
         openButton: "Ouvrir Launchpad",
         searchPlaceholder: "Rechercher des applications",
-        shortcutTitle: "Raccourci",
+        shortcutToggle: "Raccourci global pour ouvrir Launchpad",
         newFolderDefaultName: "Nouveau dossier",
-        resetLayoutButton: "Réinitialiser la disposition")
+        resetLayoutButton: "Réinitialiser",
+        resetLayoutConfirmTitle: "Réinitialiser la disposition",
+        resetLayoutConfirmMessage: "Restaurer l’ordre par défaut de toutes les apps et supprimer vos dossiers\u{202F}? Cette action est irréversible.")
 
     static let it = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Apre una griglia a schermo intero con tutte le app installate, come il Launchpad originale.",
         openButton: "Apri Launchpad",
         searchPlaceholder: "Cerca applicazioni",
-        shortcutTitle: "Scorciatoia",
+        shortcutToggle: "Scorciatoia globale per aprire Launchpad",
         newFolderDefaultName: "Nuova cartella",
-        resetLayoutButton: "Ripristina disposizione")
+        resetLayoutButton: "Ripristina",
+        resetLayoutConfirmTitle: "Ripristina disposizione",
+        resetLayoutConfirmMessage: "Ripristinare l’ordine predefinito di tutte le app e rimuovere le cartelle? Questa azione non può essere annullata.")
 
     static let ja = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "元のLaunchpadのように、インストール済みのすべてのアプリを全画面表示のグリッドで開きます。",
         openButton: "Launchpadを開く",
         searchPlaceholder: "アプリケーションを検索",
-        shortcutTitle: "ショートカット",
+        shortcutToggle: "Launchpadを開くグローバルショートカット",
         newFolderDefaultName: "新規フォルダ",
-        resetLayoutButton: "レイアウトをリセット")
+        resetLayoutButton: "リセット",
+        resetLayoutConfirmTitle: "レイアウトをリセット",
+        resetLayoutConfirmMessage: "すべてのアプリを初期の並び順に戻し、フォルダを削除しますか？この操作は元に戻せません。")
 
     static let ko = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "원래의 Launchpad처럼 설치된 모든 앱을 전체 화면 그리드로 엽니다.",
         openButton: "Launchpad 열기",
         searchPlaceholder: "응용 프로그램 검색",
-        shortcutTitle: "단축키",
+        shortcutToggle: "Launchpad를 여는 전역 단축키",
         newFolderDefaultName: "새로운 폴더",
-        resetLayoutButton: "레이아웃 재설정")
+        resetLayoutButton: "재설정",
+        resetLayoutConfirmTitle: "레이아웃 재설정",
+        resetLayoutConfirmMessage: "모든 앱을 기본 순서로 복원하고 폴더를 제거하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
 
     static let uk = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "Відкриває повноекранну сітку всіх встановлених застосунків, як оригінальний Launchpad.",
         openButton: "Відкрити Launchpad",
         searchPlaceholder: "Пошук програм",
-        shortcutTitle: "Сполучення клавіш",
+        shortcutToggle: "Глобальне сполучення клавіш для відкриття Launchpad",
         newFolderDefaultName: "Нова папка",
-        resetLayoutButton: "Скинути розташування")
+        resetLayoutButton: "Скинути",
+        resetLayoutConfirmTitle: "Скинути розташування",
+        resetLayoutConfirmMessage: "Відновити типовий порядок усіх застосунків і видалити ваші папки? Це неможливо скасувати.")
 
     static let zhHans = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "像原来的 Launchpad 一样，全屏显示所有已安装应用的网格。",
         openButton: "打开 Launchpad",
         searchPlaceholder: "搜索应用程序",
-        shortcutTitle: "快捷键",
+        shortcutToggle: "打开 Launchpad 的全局快捷键",
         newFolderDefaultName: "新建文件夹",
-        resetLayoutButton: "重置布局")
+        resetLayoutButton: "重置",
+        resetLayoutConfirmTitle: "重置布局",
+        resetLayoutConfirmMessage: "将所有应用恢复为默认顺序并删除您的文件夹？此操作无法撤销。")
 
     static let zhTW = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "像原本的 Launchpad 一樣，以全螢幕方式顯示所有已安裝應用程式的網格。",
         openButton: "打開 Launchpad",
         searchPlaceholder: "搜尋應用程式",
-        shortcutTitle: "快速鍵",
+        shortcutToggle: "打開 Launchpad 的全域快速鍵",
         newFolderDefaultName: "新資料夾",
-        resetLayoutButton: "重設版面配置")
+        resetLayoutButton: "重設",
+        resetLayoutConfirmTitle: "重設版面配置",
+        resetLayoutConfirmMessage: "將所有應用程式還原為預設順序並移除您的檔案夾？此操作無法復原。")
 
     static let zhHK = LaunchpadStrings(
         pageTitle: "Launchpad Classic",
         hubDescription: "像原本的 Launchpad 一樣，以全螢幕顯示所有已安裝應用程式的網格。",
         openButton: "打開 Launchpad",
         searchPlaceholder: "搜尋應用程式",
-        shortcutTitle: "快速鍵",
+        shortcutToggle: "打開 Launchpad 的全域快速鍵",
         newFolderDefaultName: "新資料夾",
-        resetLayoutButton: "重設版面配置")
+        resetLayoutButton: "重設",
+        resetLayoutConfirmTitle: "重設版面配置",
+        resetLayoutConfirmMessage: "將所有應用程式還原為預設順序並移除您的資料夾？此操作無法復原。")
 }
