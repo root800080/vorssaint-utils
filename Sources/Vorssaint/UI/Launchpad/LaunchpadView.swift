@@ -62,6 +62,7 @@ struct LaunchpadView: View {
             .padding(.bottom, 90)
             if let openFolder {
                 folderOverlay(openFolder)
+                    .transition(.scale(scale: 0.85).combined(with: .opacity))
             }
         }
         .onAppear { refreshOnShow() }
@@ -97,9 +98,17 @@ struct LaunchpadView: View {
             case .app(let id):
                 if let app = appsByID[id] { launch(app) }
             case .folder(let folder):
-                openFolder = folder
+                open(folder)
             }
         }
+    }
+
+    private func open(_ folder: LaunchpadFolder) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { openFolder = folder }
+    }
+
+    private func closeFolder() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { openFolder = nil }
     }
 
     private var searchField: some View {
@@ -139,7 +148,7 @@ struct LaunchpadView: View {
             folderTile(folder)
                 .selectionHighlight(isSelected)
                 .onDrop(of: [.text], delegate: LaunchpadDropDelegate(targetID: item.id, layout: $layout, newFolderName: text.newFolderDefaultName))
-                .onTapGesture { openFolder = folder }
+                .onTapGesture { open(folder) }
         }
     }
 
@@ -215,7 +224,7 @@ struct LaunchpadView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.opacity(0.35).onTapGesture {
             commitFolderRename(folder)
-            openFolder = nil
+            closeFolder()
         })
         .onChange(of: openFolder) { folderPage = 0; folderNameDraft = openFolder?.name ?? "" }
     }
