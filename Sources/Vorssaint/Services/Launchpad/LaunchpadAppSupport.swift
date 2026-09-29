@@ -103,4 +103,12 @@ enum LaunchpadPagingSupport {
         guard (0..<pageCount).contains(target) else { return nil }
         return target
     }
+
+    /// The page a horizontal position within the dots row maps to, for
+    /// dragging across the dots like a scrubber instead of only tapping one.
+    static func scrubbedPage(x: CGFloat, width: CGFloat, pageCount: Int) -> Int {
+        guard pageCount > 0, width > 0, x.isFinite else { return 0 }
+        let fraction = min(max(x / width, 0), 1)
+        return min(Int(fraction * CGFloat(pageCount)), pageCount - 1)
+    }
 }

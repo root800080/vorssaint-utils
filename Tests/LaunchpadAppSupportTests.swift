@@ -77,5 +77,18 @@ enum LaunchpadAppSupportTests {
                      "up on the first row stays put")
         suite.expect(LaunchpadSelectionSupport.moved(current: 7, direction: .down, count: 10, columns: 5) == 7,
                      "down past the last row stays put rather than crossing to another page")
+
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 0, width: 100, pageCount: 4) == 0,
+                     "the very start of the dots row is the first page")
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 100, width: 100, pageCount: 4) == 3,
+                     "the very end of the dots row is the last page")
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 26, width: 100, pageCount: 4) == 1,
+                     "a position between dots rounds down to the page it's over")
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: -50, width: 100, pageCount: 4) == 0,
+                     "a position before the row clamps to the first page")
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 500, width: 100, pageCount: 4) == 3,
+                     "a position past the row clamps to the last page")
+        suite.expect(LaunchpadPagingSupport.scrubbedPage(x: 50, width: 100, pageCount: 0) == 0,
+                     "no pages at all reads as page zero rather than crashing on the divide")
     }
 }
