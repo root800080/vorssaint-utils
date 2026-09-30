@@ -192,6 +192,7 @@ enum DefaultsKey {
     static let touchIDGuardShowFeedback = "touchIDGuardShowFeedback"
     static let touchIDGuardMode = "touchIDGuardMode"
     static let touchIDGuardHoldDurationMs = "touchIDGuardHoldDurationMs"
+    static let shortcutsActionsEnabled = "shortcutsActionsEnabled"
     static let shelfEnabled = "shelfEnabled"
     static let shelfShortcutEnabled = "shelfShortcutEnabled"
     static let shelfShortcut = "shelfShortcut"            // GlobalShortcut storage value
@@ -1266,6 +1267,7 @@ enum Defaults {
         DefaultsKey.touchIDGuardShowFeedback: true,
         DefaultsKey.touchIDGuardMode: TouchIDGuardMode.hold.rawValue,
         DefaultsKey.touchIDGuardHoldDurationMs: TouchIDGuardSupport.defaultHoldDurationMilliseconds,
+        DefaultsKey.shortcutsActionsEnabled: false,
         // When the shelf is on, the shake gesture is on too (still toggleable).
         DefaultsKey.shelfShortcutEnabled: true,
         DefaultsKey.shelfShortcut: "control+option+command:2",
