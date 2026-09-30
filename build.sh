@@ -43,7 +43,7 @@ for arg in "$@"; do
 done
 
 if (( DEV )); then
-    APP_NAME="Vorssaint (Developer)"
+    APP_NAME="Vorssaint (Custom)"
     EXECUTABLE="VorssaintDeveloper"
     APP_BUNDLE_ID="com.vorssaint.utils.dev"
     BUILD_VARIANT_FLAGS=(-D VORSSAINT_DEVELOPMENT)
