@@ -96,7 +96,7 @@ struct RunQuickToggleIntent: AppIntent {
         case "screenSaver": service.startScreenSaver()
         default:
             throw ShortcutsActionError(
-                message: FeatureStrings.shortcutsActions(L10n.shared.language).notInstalledMessage)
+                message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
         }
         return .result()
     }
@@ -149,7 +149,7 @@ struct KeepAwakeIntent: AppIntent {
         // stopped" inside `activate`, so it is refused here.
         guard let minutes = ShortcutsActionsSupport.keepAwakeMinutes(duration.minutes) else {
             throw ShortcutsActionError(
-                message: FeatureStrings.shortcutsActions(L10n.shared.language).notInstalledMessage)
+                message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
         }
         KeepAwakeManager.shared.activate(minutes: minutes)
         return .result()
@@ -228,7 +228,7 @@ struct SetFeatureEnabledIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         guard let target = AppFeature(rawValue: feature.id) else {
             throw ShortcutsActionError(
-                message: FeatureStrings.shortcutsActions(L10n.shared.language).notInstalledMessage)
+                message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
         }
         try ShortcutsActionGate.require(target)
         // Checked again here: the list was built earlier, and a feature with
@@ -236,10 +236,175 @@ struct SetFeatureEnabledIntent: AppIntent {
         guard ShortcutsActionsSupport.offersPowerSwitch(enabledKeyCount: target.enabledKeys.count),
               let key = target.enabledKeys.first else {
             throw ShortcutsActionError(
-                message: FeatureStrings.shortcutsActions(L10n.shared.language).notInstalledMessage)
+                message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
         }
         UserDefaults.standard.set(enabled, forKey: key)
         FeatureRuntime.shared.sync([target])
+        return .result()
+    }
+}
+
+// MARK: - Asking whether a feature is on: the same picker, a value back
+
+struct IsFeatureOnIntent: AppIntent {
+    static let title: LocalizedStringResource = "Is Vorssaint Feature On"
+    static let description = IntentDescription("Returns whether an installed Vorssaint feature is switched on.")
+
+    @Parameter(title: "Feature")
+    var feature: FeatureToggleEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Is \(\.$feature) on")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ReturnsValue<Bool> {
+        guard let target = AppFeature(rawValue: feature.id),
+              ShortcutsActionsSupport.offersPowerSwitch(enabledKeyCount: target.enabledKeys.count),
+              let key = target.enabledKeys.first else {
+            throw ShortcutsActionError(
+                message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
+        }
+        try ShortcutsActionGate.require(target)
+        return .result(value: UserDefaults.standard.bool(forKey: key))
+    }
+}
+
+// MARK: - Mixer: the volume of one app
+
+struct MixerAppEntity: AppEntity {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "App")
+    static let defaultQuery = MixerAppEntityQuery()
+
+    /// The key the mixer saves the app's volume under, which outlives a launch.
+    var id: String
+    var title: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(title)")
+    }
+}
+
+struct MixerAppEntityQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [MixerAppEntity] {
+        await mixerApps().filter { identifiers.contains($0.id) }
+    }
+
+    func suggestedEntities() async throws -> [MixerAppEntity] {
+        await mixerApps()
+    }
+
+    /// The apps the mixer lists right now that it can adjust. A row with no
+    /// saved identity, or one the mixer never taps, has nothing to set.
+    @MainActor
+    private func mixerApps() -> [MixerAppEntity] {
+        guard AppFeature.mixer.isAvailable else { return [] }
+        return AppVolumeMixer.shared.apps.compactMap { app in
+            guard !app.isBypassed, let id = app.persistenceID else { return nil }
+            return MixerAppEntity(id: id, title: app.name)
+        }
+    }
+}
+
+struct SetAppVolumeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Set App Volume"
+    static let description = IntentDescription("Sets the volume of one app in the Vorssaint mixer.")
+
+    @Parameter(title: "App")
+    var app: MixerAppEntity
+
+    @Parameter(title: "Volume", default: 50, controlStyle: .slider, inclusiveRange: (0, 100))
+    var percent: Double
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Set the volume of \(\.$app) to \(\.$percent)")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        try ShortcutsActionGate.require(.mixer)
+        let strings = FeatureStrings.shortcutsActions(L10n.shared.language)
+        guard let target = AppVolumeMixer.shared.apps.first(where: {
+            $0.persistenceID == app.id && !$0.isBypassed
+        }) else {
+            throw ShortcutsActionError(message: strings.appUnavailableMessage)
+        }
+        AppVolumeMixer.shared.setVolume(ShortcutsActionsSupport.appVolume(percent: Int(percent.rounded())), for: target)
+        return .result()
+    }
+}
+
+// MARK: - Timer, Pomodoro and stopwatch
+
+enum TimerModeOption: String, AppEnum {
+    case timer, pomodoro, stopwatch
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Timer mode")
+    static let caseDisplayRepresentations: [TimerModeOption: DisplayRepresentation] = [
+        .timer: "Timer",
+        .pomodoro: "Pomodoro",
+        .stopwatch: "Stopwatch"
+    ]
+
+    var mode: NotchTimerMode {
+        switch self {
+        case .timer: return .timer
+        case .pomodoro: return .pomodoro
+        case .stopwatch: return .stopwatch
+        }
+    }
+}
+
+struct StartTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Start Timer"
+    static let description = IntentDescription("Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island.")
+
+    @Parameter(title: "Mode", default: .timer)
+    var mode: TimerModeOption
+
+    @Parameter(title: "Minutes", default: 25, inclusiveRange: (1, 180))
+    var minutes: Int
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Start \(\.$mode)") {
+            \.$minutes
+        }
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        try ShortcutsActionGate.require(.notchTimer)
+        let failure = ShortcutsActionError(
+            message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
+        guard let validMinutes = ShortcutsActionsSupport.timerMinutes(minutes) else { throw failure }
+        let service = NotchTimerService.shared
+        service.start(mode: mode.mode, minutes: validMinutes)
+        // The service refuses, without a word, while a session is already on.
+        guard service.session.hasSession else { throw failure }
+        return .result()
+    }
+}
+
+struct PauseResumeTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Pause or Resume Timer"
+    static let description = IntentDescription("Pauses the running timer, or resumes a paused one.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        try ShortcutsActionGate.require(.notchTimer)
+        NotchTimerService.shared.pauseOrResume()
+        return .result()
+    }
+}
+
+struct StopTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Stop Timer"
+    static let description = IntentDescription("Stops the timer, Pomodoro or stopwatch and clears it.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        try ShortcutsActionGate.require(.notchTimer)
+        NotchTimerService.shared.cancel()
         return .result()
     }
 }

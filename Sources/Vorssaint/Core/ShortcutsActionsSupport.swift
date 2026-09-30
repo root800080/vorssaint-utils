@@ -34,6 +34,21 @@ enum ShortcutsActionsSupport {
     /// belongs to someone who is looking at them.
     static let quickToggleIDs = ["darkMode", "lockScreen", "displayOff", "screenSaver"]
 
+    /// Minutes a timer or Pomodoro can be started with from Shortcuts: the
+    /// range the Dynamic Island ruler offers. Anything else is refused rather
+    /// than bent into range, since a typo of 0 or 1000 is not a wish for 1 or 180.
+    static let timerMinutesRange = 1...180
+
+    static func timerMinutes(_ value: Int) -> Int? {
+        timerMinutesRange.contains(value) ? value : nil
+    }
+
+    /// An app's volume from a percent, where 100 is the app's own level. The
+    /// mixer can also boost past it, which is left to the panel.
+    static func appVolume(percent: Int) -> Double {
+        Double(min(max(percent, 0), 100)) / 100
+    }
+
     /// The Keep Awake durations the panel offers, 0 meaning until stopped. A
     /// value outside the list would otherwise fall back to "until stopped" in
     /// `Defaults.sanitizedDefaultDuration`, which is the opposite of a short
