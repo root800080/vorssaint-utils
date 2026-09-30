@@ -49,11 +49,13 @@ final class TouchIDGuardService: ObservableObject {
     }
 
     /// Hold mode needs the button's state; ignore mode only needs the event,
-    /// so a Mac without the key can still use it.
-    static var canMeasureHold: Bool {
+    /// so a Mac without the key can still use it. Asked once: the Settings
+    /// page reads it every time SwiftUI rebuilds the view, and the answer
+    /// cannot change while the app runs.
+    static let canMeasureHold: Bool = {
         guard let smc = SMCClient() else { return false }
         return smc.key(named: TouchIDGuardSupport.pressedStateKey) != nil
-    }
+    }()
 
     func syncWithPreferences() {
         guard SessionActivitySupport.tapShouldRun(
