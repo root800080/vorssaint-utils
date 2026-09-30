@@ -79,6 +79,10 @@ struct MetricsTests {
                 NotchAgentTests.run(suite)
                 AgentWaitTests.run(suite)
             }),
+            ("launchpad", {
+                LaunchpadAppSupportTests.run(suite)
+                LaunchpadLayoutSupportTests.run(suite)
+            }),
             ("features", {
                 FeatureCatalogTests.run(suite)
                 MenuPanelSectionGateContract.run(suite)
