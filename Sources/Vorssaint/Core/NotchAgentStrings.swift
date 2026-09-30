@@ -323,7 +323,7 @@ extension NotchAgentStrings {
         finishAfter: "Для завдань довших за",
         anyLength: "Будь-яка тривалість",
         limitAlert: "Поблизу ліміту плану",
-        waitingAlert: "Claude чекає на вашу відповідь",
+        waitingAlert: "Claude очікує на вашу відповідь",
         closestToLimit: "Найближче до ліміту",
         showWindowLength: "Показувати тривалість вікна перед відсотком",
         limitAt: "Попереджати при",

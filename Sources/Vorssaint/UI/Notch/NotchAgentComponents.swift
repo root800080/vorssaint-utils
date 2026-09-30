@@ -147,7 +147,6 @@ struct NotchAgentGlyph: View {
     /// A session for this provider is blocked waiting on a reply, not just
     /// still working.
     var waiting = false
-    @State private var breathing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -157,11 +156,10 @@ struct NotchAgentGlyph: View {
             .overlay(alignment: .topTrailing) {
                 if waiting {
                     Circle()
-                        .fill(.orange)
+                        .fill(.yellow)
                         .frame(width: max(4, size * 0.32), height: max(4, size * 0.32))
                 }
             }
-            .onAppear { breathing = true }
             .accessibilityHidden(true)
             .allowsHitTesting(false)
     }

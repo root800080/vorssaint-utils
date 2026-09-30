@@ -764,6 +764,7 @@ final class NotchService: ObservableObject {
         followsPointer = displayPreference == .pointer || displayPreference == .all
         showsOnAllDisplays = displayPreference == .all
         updateFullscreenDisplays()
+        AgentWaitWatcher.shared.syncWithPreferences()
         updateScreen()
         syncPointerFollowing()
         syncGestures()
@@ -864,6 +865,7 @@ final class NotchService: ObservableObject {
         NotchCalendarService.shared.stop()
         NotchNotificationService.shared.stop()
         AgentUsageService.shared.pause()
+        AgentWaitWatcher.shared.stop()
         settingsSignature = ""
         expanded = false
         peeking = false
