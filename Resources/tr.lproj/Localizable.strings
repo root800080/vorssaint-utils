@@ -16,7 +16,7 @@
 "App" = "Uygulama";
 "Volume" = "Ses düzeyi";
 "Set App Volume" = "Uygulama ses düzeyini ayarla";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "Kurulu bir Vorssaint özelliğini, Ayarlar’daki anahtarı gibi açar veya kapatır.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "Kurulu bir Vorssaint özelliğini, Ayarlar’daki anahtarı gibi açar, kapatır veya tersine çevirir.";
 "On" = "Açık";
 "Turn Vorssaint Feature On or Off" = "Vorssaint özelliğini aç veya kapat";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Dynamic Island’da bir zamanlayıcı, Pomodoro veya kronometre başlatır.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Mac’i uyanık tut: ${duration}";
 "Run ${toggle}" = "${toggle} çalıştır";
 "Set the volume of ${app} to ${percent}" = "${app} ses düzeyini ${percent} yap";
-"Turn ${feature} ${enabled}" = "${feature} ayarını ${enabled} yap";
 "Start ${mode}" = "${mode} başlat";
+"State" = "Durum";
+"Switch state" = "Anahtar durumu";
+"Off" = "Kapalı";
+"Toggle" = "Değiştir";
+"Set ${feature} to ${state}" = "${feature} ayarını ${state} yap";

@@ -16,7 +16,7 @@
 "App" = "앱";
 "Volume" = "볼륨";
 "Set App Volume" = "앱 볼륨 설정";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "설치된 Vorssaint 기능을 설정의 스위치처럼 켜거나 끕니다.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "설치된 Vorssaint 기능을 설정의 스위치처럼 켜거나 끄거나 전환합니다.";
 "On" = "켬";
 "Turn Vorssaint Feature On or Off" = "Vorssaint 기능 켜기 또는 끄기";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Dynamic Island에서 타이머, 포모도로 또는 스톱워치를 시작합니다.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Mac 절전 방지: ${duration}";
 "Run ${toggle}" = "${toggle} 실행";
 "Set the volume of ${app} to ${percent}" = "${app}의 볼륨을 ${percent}(으)로 설정";
-"Turn ${feature} ${enabled}" = "${feature}을(를) ${enabled}(으)로 설정";
 "Start ${mode}" = "${mode} 시작";
+"State" = "상태";
+"Switch state" = "스위치 상태";
+"Off" = "끔";
+"Toggle" = "전환";
+"Set ${feature} to ${state}" = "${feature}을(를) ${state}(으)로 설정";

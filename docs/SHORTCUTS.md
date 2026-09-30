@@ -5,7 +5,7 @@ Vorssaint can offer actions to the Shortcuts app, so a shortcut can switch a fea
 | Action | What it does |
 |---|---|
 | Run Quick Toggle | Runs one quick toggle from the panel: dark mode, lock screen, display off or screen saver. Emptying the Trash and ejecting disks are not offered. |
-| Turn Vorssaint Feature On or Off | Switches an installed feature on or off, like its switch in Settings. |
+| Turn Vorssaint Feature On or Off | Sets an installed feature on, off or to its opposite, like its switch in Settings. Toggle reads the state when the action runs, so the same shortcut flips it back. |
 | Is Vorssaint Feature On | Returns whether an installed feature is switched on. |
 | Keep Mac Awake | Starts a Keep Awake session for one of the panel's durations. |
 | Is Keep Awake On | Returns whether a Keep Awake session is running. |

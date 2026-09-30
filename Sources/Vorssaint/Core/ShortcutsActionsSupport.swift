@@ -20,6 +20,21 @@ enum ShortcutsActionsSupport {
         return nil
     }
 
+    /// What a shortcut asks of a feature's switch.
+    enum SwitchChoice: Equatable {
+        case on, off, toggle
+    }
+
+    /// The value the switch ends up with. Toggle reads the state at the moment
+    /// the action runs, so the same shortcut can be run again to flip it back.
+    static func switchValue(_ choice: SwitchChoice, current: Bool) -> Bool {
+        switch choice {
+        case .on: return true
+        case .off: return false
+        case .toggle: return !current
+        }
+    }
+
     /// Whether a feature's on/off can be set from Shortcuts without guessing:
     /// it has exactly one plain switch. A feature with several switches would
     /// leave the question of which one "on" means, and one with none works on

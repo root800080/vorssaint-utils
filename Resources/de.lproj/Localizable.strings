@@ -16,7 +16,7 @@
 "App" = "App";
 "Volume" = "Lautstärke";
 "Set App Volume" = "App-Lautstärke festlegen";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "Schaltet eine installierte Vorssaint-Funktion ein oder aus, wie ihr Schalter in den Einstellungen.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "Schaltet eine installierte Vorssaint-Funktion ein oder aus oder schaltet sie um, wie ihr Schalter in den Einstellungen.";
 "On" = "Ein";
 "Turn Vorssaint Feature On or Off" = "Vorssaint-Funktion ein- oder ausschalten";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Startet einen Timer, einen Pomodoro oder eine Stoppuhr in der Dynamic Island.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Mac wachhalten: ${duration}";
 "Run ${toggle}" = "${toggle} ausführen";
 "Set the volume of ${app} to ${percent}" = "Lautstärke von ${app} auf ${percent} stellen";
-"Turn ${feature} ${enabled}" = "${feature} auf ${enabled} stellen";
 "Start ${mode}" = "${mode} starten";
+"State" = "Zustand";
+"Switch state" = "Schalterzustand";
+"Off" = "Aus";
+"Toggle" = "Umschalten";
+"Set ${feature} to ${state}" = "${feature} auf ${state} stellen";

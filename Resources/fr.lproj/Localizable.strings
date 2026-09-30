@@ -16,7 +16,7 @@
 "App" = "App";
 "Volume" = "Volume";
 "Set App Volume" = "Régler le volume d’une app";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "Active ou désactive une fonction Vorssaint installée, comme son interrupteur dans les Réglages.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "Active, désactive ou bascule une fonction Vorssaint installée, comme son interrupteur dans les Réglages.";
 "On" = "Activé";
 "Turn Vorssaint Feature On or Off" = "Activer ou désactiver une fonction Vorssaint";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Démarre un minuteur, un Pomodoro ou un chronomètre dans la Dynamic Island.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Garder le Mac éveillé : ${duration}";
 "Run ${toggle}" = "Exécuter ${toggle}";
 "Set the volume of ${app} to ${percent}" = "Régler le volume de ${app} sur ${percent}";
-"Turn ${feature} ${enabled}" = "Régler ${feature} sur ${enabled}";
 "Start ${mode}" = "Démarrer ${mode}";
+"State" = "État";
+"Switch state" = "État de l’interrupteur";
+"Off" = "Désactivé";
+"Toggle" = "Basculer";
+"Set ${feature} to ${state}" = "Régler ${feature} sur ${state}";

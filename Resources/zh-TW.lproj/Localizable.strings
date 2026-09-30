@@ -16,7 +16,7 @@
 "App" = "App";
 "Volume" = "音量";
 "Set App Volume" = "設定 App 音量";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "開啟或關閉已安裝的 Vorssaint 功能，就像設定中的開關一樣。";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "開啟、關閉或切換已安裝的 Vorssaint 功能，就像設定中的開關一樣。";
 "On" = "開啟";
 "Turn Vorssaint Feature On or Off" = "開啟或關閉 Vorssaint 功能";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "在 Dynamic Island 中啟動計時器、番茄鐘或碼錶。";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "保持 Mac 喚醒：${duration}";
 "Run ${toggle}" = "執行 ${toggle}";
 "Set the volume of ${app} to ${percent}" = "將 ${app} 的音量設為 ${percent}";
-"Turn ${feature} ${enabled}" = "將 ${feature} 設為 ${enabled}";
 "Start ${mode}" = "啟動 ${mode}";
+"State" = "狀態";
+"Switch state" = "開關狀態";
+"Off" = "關閉";
+"Toggle" = "切換";
+"Set ${feature} to ${state}" = "將 ${feature} 設為 ${state}";

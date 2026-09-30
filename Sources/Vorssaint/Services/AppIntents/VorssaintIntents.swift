@@ -209,19 +209,38 @@ struct FeatureToggleEntityQuery: EntityQuery {
     }
 }
 
+enum FeatureSwitchState: String, AppEnum {
+    case on, off, toggle
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Switch state")
+    static let caseDisplayRepresentations: [FeatureSwitchState: DisplayRepresentation] = [
+        .on: "On",
+        .off: "Off",
+        .toggle: "Toggle"
+    ]
+
+    var choice: ShortcutsActionsSupport.SwitchChoice {
+        switch self {
+        case .on: return .on
+        case .off: return .off
+        case .toggle: return .toggle
+        }
+    }
+}
+
 struct SetFeatureEnabledIntent: AppIntent {
     static let title: LocalizedStringResource = "Turn Vorssaint Feature On or Off"
     static let description = IntentDescription(
-        "Switches an installed Vorssaint feature on or off, like its switch in Settings.")
+        "Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings.")
 
     @Parameter(title: "Feature")
     var feature: FeatureToggleEntity
 
-    @Parameter(title: "On", default: true)
-    var enabled: Bool
+    @Parameter(title: "State", default: .on)
+    var state: FeatureSwitchState
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Turn \(\.$feature) \(\.$enabled)")
+        Summary("Set \(\.$feature) to \(\.$state)")
     }
 
     @MainActor
@@ -238,7 +257,9 @@ struct SetFeatureEnabledIntent: AppIntent {
             throw ShortcutsActionError(
                 message: FeatureStrings.shortcutsActions(L10n.shared.language).couldNotRunMessage)
         }
-        UserDefaults.standard.set(enabled, forKey: key)
+        let defaults = UserDefaults.standard
+        defaults.set(ShortcutsActionsSupport.switchValue(state.choice, current: defaults.bool(forKey: key)),
+                     forKey: key)
         FeatureRuntime.shared.sync([target])
         return .result()
     }

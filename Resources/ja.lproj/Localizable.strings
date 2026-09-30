@@ -16,7 +16,7 @@
 "App" = "App";
 "Volume" = "音量";
 "Set App Volume" = "App の音量を設定";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "インストール済みの Vorssaint の機能を、設定のスイッチと同じようにオンまたはオフにします。";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "インストール済みの Vorssaint の機能を、設定のスイッチと同じようにオン、オフ、または切り替えます。";
 "On" = "オン";
 "Turn Vorssaint Feature On or Off" = "Vorssaint の機能をオンまたはオフにする";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Dynamic Island でタイマー、ポモドーロ、またはストップウォッチを開始します。";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Mac のスリープを防止: ${duration}";
 "Run ${toggle}" = "${toggle} を実行";
 "Set the volume of ${app} to ${percent}" = "${app} の音量を ${percent} に設定";
-"Turn ${feature} ${enabled}" = "${feature} を ${enabled} にする";
 "Start ${mode}" = "${mode} を開始";
+"State" = "状態";
+"Switch state" = "スイッチの状態";
+"Off" = "オフ";
+"Toggle" = "切り替え";
+"Set ${feature} to ${state}" = "${feature} を ${state} にする";

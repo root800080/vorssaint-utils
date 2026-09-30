@@ -16,7 +16,7 @@
 "App" = "Приложение";
 "Volume" = "Громкость";
 "Set App Volume" = "Задать громкость приложения";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "Включает или выключает установленную функцию Vorssaint, как её переключатель в настройках.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "Включает, выключает или переключает установленную функцию Vorssaint, как её переключатель в настройках.";
 "On" = "Вкл.";
 "Turn Vorssaint Feature On or Off" = "Включить или выключить функцию Vorssaint";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Запускает таймер, помодоро или секундомер в Dynamic Island.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Не давать Mac уснуть: ${duration}";
 "Run ${toggle}" = "Выполнить ${toggle}";
 "Set the volume of ${app} to ${percent}" = "Задать громкость ${app}: ${percent}";
-"Turn ${feature} ${enabled}" = "Установить ${feature}: ${enabled}";
 "Start ${mode}" = "Запустить ${mode}";
+"State" = "Состояние";
+"Switch state" = "Состояние переключателя";
+"Off" = "Выкл.";
+"Toggle" = "Переключить";
+"Set ${feature} to ${state}" = "Установить ${feature}: ${state}";

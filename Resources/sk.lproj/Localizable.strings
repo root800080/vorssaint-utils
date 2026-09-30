@@ -16,7 +16,7 @@
 "App" = "Aplikácia";
 "Volume" = "Hlasitosť";
 "Set App Volume" = "Nastaviť hlasitosť aplikácie";
-"Switches an installed Vorssaint feature on or off, like its switch in Settings." = "Zapne alebo vypne nainštalovanú funkciu Vorssaint ako jej prepínač v Nastaveniach.";
+"Switches an installed Vorssaint feature on or off, or toggles it, like its switch in Settings." = "Zapne, vypne alebo prepne nainštalovanú funkciu Vorssaint ako jej prepínač v Nastaveniach.";
 "On" = "Zapnuté";
 "Turn Vorssaint Feature On or Off" = "Zapnúť alebo vypnúť funkciu Vorssaint";
 "Starts a timer, a Pomodoro or a stopwatch in the Dynamic Island." = "Spustí časovač, Pomodoro alebo stopky v Dynamic Island.";
@@ -41,5 +41,9 @@
 "Keep the Mac awake ${duration}" = "Udržať Mac bdelý: ${duration}";
 "Run ${toggle}" = "Spustiť ${toggle}";
 "Set the volume of ${app} to ${percent}" = "Nastaviť hlasitosť ${app} na ${percent}";
-"Turn ${feature} ${enabled}" = "Nastaviť ${feature} na ${enabled}";
 "Start ${mode}" = "Spustiť ${mode}";
+"State" = "Stav";
+"Switch state" = "Stav prepínača";
+"Off" = "Vypnuté";
+"Toggle" = "Prepnúť";
+"Set ${feature} to ${state}" = "Nastaviť ${feature} na ${state}";

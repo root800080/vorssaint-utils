@@ -16,6 +16,14 @@ enum ShortcutsActionsTests {
         suite.expect(Support.refusal(actionsEnabled: true, featureInstalled: true) == nil,
                      "an allowed action of an installed feature runs")
 
+        for current in [false, true] {
+            suite.expect(Support.switchValue(.on, current: current),
+                         "On leaves the switch on whatever it was (was \(current))")
+            suite.expect(!Support.switchValue(.off, current: current),
+                         "Off leaves the switch off whatever it was (was \(current))")
+            suite.expect(Support.switchValue(.toggle, current: current) == !current,
+                         "Toggle flips the switch (was \(current))")
+        }
         suite.expect(Support.offersPowerSwitch(enabledKeyCount: 1),
                      "a feature with one switch can be turned on and off")
         suite.expect(!Support.offersPowerSwitch(enabledKeyCount: 0),
