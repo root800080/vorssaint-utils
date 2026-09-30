@@ -115,16 +115,34 @@ enum NotchAgentSupport {
     /// or the one closest to running out while the account reports no such
     /// window. A model's own allowance is never the chosen one.
     static func focusedLimit(_ limits: AgentLimits?, focus: NotchAgentLimitFocus, now: Date) -> AgentLimitWindow? {
+        chosenLimit(limits, focus: focus, now: now) ?? AgentLimitSupport.binding(limits, now: now)
+    }
+
+    /// The plan-wide window of the chosen kind; nil for the most used one or
+    /// while the account reports no such window.
+    private static func chosenLimit(_ limits: AgentLimits?, focus: NotchAgentLimitFocus, now: Date) -> AgentLimitWindow? {
         let kind: AgentLimitWindow.Kind
         switch focus {
-        case .mostUsed: return AgentLimitSupport.binding(limits, now: now)
+        case .mostUsed: return nil
         case .session: kind = .session
         case .weekly: kind = .weekly
         }
-        guard let window = limits?.windows.first(where: { $0.kind == kind && $0.scope == nil }) else {
-            return AgentLimitSupport.binding(limits, now: now)
+        return limits?.windows.first { $0.kind == kind && $0.scope == nil }.map { AgentLimitSupport.current($0, at: now) }
+    }
+
+    /// The resting island's allowance across every account: the most spent
+    /// of the chosen windows, or of each account's most used window while no
+    /// account reports the chosen one.
+    static func restingLimit(_ snapshot: AgentUsageSnapshot, focus: NotchAgentLimitFocus,
+                             now: Date) -> (provider: AgentProvider, window: AgentLimitWindow)? {
+        func mostSpent(_ pick: (AgentLimits) -> AgentLimitWindow?) -> (provider: AgentProvider, window: AgentLimitWindow)? {
+            snapshot.limits.compactMap { provider, limits in pick(limits).map { (provider: provider, window: $0) } }.max {
+                $0.window.usedPercent != $1.window.usedPercent ? $0.window.usedPercent < $1.window.usedPercent
+                    : $0.provider.rawValue > $1.provider.rawValue
+            }
         }
-        return AgentLimitSupport.current(window, at: now)
+        return mostSpent { chosenLimit($0, focus: focus, now: now) }
+            ?? mostSpent { AgentLimitSupport.binding($0, now: now) }
     }
 
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {

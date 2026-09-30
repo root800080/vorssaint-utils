@@ -127,23 +127,16 @@ struct NotchAgentRestingWing: View {
 
     @ViewBuilder private func content(now: Date) -> some View {
         let snapshot = usage.snapshot
-        let candidates = snapshot.limits.compactMap { provider, limits in
-            NotchAgentSupport.focusedLimit(limits, focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
-                .map { (provider: provider, window: $0) }
-        }
-        let focus = candidates.max {
-            $0.window.usedPercent != $1.window.usedPercent ? $0.window.usedPercent < $1.window.usedPercent
-                : $0.provider.rawValue > $1.provider.rawValue
-        }
+        let limit = NotchAgentSupport.restingLimit(snapshot, focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
         let used = display == NotchAgentLimitDisplay.used.rawValue
-        if let focus {
-            let tint = agentLimitTint(focus.provider, usedFraction: focus.window.usedFraction)
+        if let limit {
+            let tint = agentLimitTint(limit.provider, usedFraction: limit.window.usedFraction)
             if leading {
-                NotchAgentRing(value: used ? focus.window.usedFraction : focus.window.remainingFraction,
+                NotchAgentRing(value: used ? limit.window.usedFraction : limit.window.remainingFraction,
                                tint: tint, lineWidth: 2)
                     .frame(width: 11, height: 11)
             } else {
-                Text(AgentFormat.percent(used ? focus.window.usedFraction : focus.window.remainingFraction))
+                Text(AgentFormat.percent(used ? limit.window.usedFraction : limit.window.remainingFraction))
                     .font(.system(size: 9, weight: .medium))
                     .monospacedDigit()
                     .lineLimit(1)

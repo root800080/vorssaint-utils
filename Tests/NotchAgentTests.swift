@@ -731,6 +731,18 @@ enum NotchAgentTests {
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .used, focus: .session, now: now)
                         == AgentFormat.percent(0.79),
                      "without the chosen window the closed island shows the one closest to running out")
+        let codexWeek = AgentLimits(provider: .codex, windows: [
+            AgentLimitWindow(id: "cw", kind: .weekly, minutes: 10_080, scope: nil, usedPercent: 70,
+                             resetsAt: now.addingTimeInterval(86_400))], observedAt: now, source: .sessionLog)
+        let resting = snapshot([], limits: [.claude: both, .codex: codexWeek])
+        suite.expect(NotchAgentSupport.restingLimit(resting, focus: .session, now: now)
+                        .map { $0.provider == .claude && $0.window.usedPercent == 22 } == true,
+                     "the resting island compares only the chosen windows while any account reports one")
+        suite.expect(NotchAgentSupport.restingLimit(snapshot([], limits: [.codex: codexWeek]), focus: .session, now: now)
+                        .map { $0.provider == .codex && $0.window.usedPercent == 70 } == true
+                        && NotchAgentSupport.restingLimit(resting, focus: .mostUsed, now: now)
+                            .map { $0.provider == .claude && $0.window.usedPercent == 95 } == true,
+                     "the resting island falls back to the most used window only when no account reports the chosen one")
         let expiredAt = now.addingTimeInterval(86_401)
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, now: expiredAt)
                         == AgentFormat.percent(1),
