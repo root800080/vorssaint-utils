@@ -733,6 +733,13 @@ enum NotchAgentTests {
                                                     showsLimitLength: false, locale: .autoupdatingCurrent,
                                                     now: now.addingTimeInterval(3_601)) == AgentFormat.percent(0),
                      "a chosen session that renewed reads as unspent")
+        suite.expect(NotchAgentSupport.stripReading(working, readout: .limit, display: .used, focus: .session,
+                                                    showsLimitLength: true, locale: locale, now: now)
+                        == "5h " + AgentFormat.percent(0.22, locale: locale)
+                        && NotchAgentSupport.stripReading(working, readout: .limit, display: .used, focus: .weekly,
+                                                          showsLimitLength: true, locale: locale, now: now)
+                            == "7d " + AgentFormat.percent(0.79, locale: locale),
+                     "the length describes the chosen limit, not the one closest to running out")
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .used, focus: .session, showsLimitLength: false,
                                                     locale: .autoupdatingCurrent, now: now)
                         == AgentFormat.percent(0.79),
