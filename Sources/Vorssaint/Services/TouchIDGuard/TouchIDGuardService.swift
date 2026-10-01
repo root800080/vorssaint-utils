@@ -4,12 +4,15 @@
 import AppKit
 import CoreGraphics
 import Combine
+import IOKit
 
 /// Stops a press of the Touch ID / Power button from locking the Mac right
 /// away. The tap only looks at system-defined events and passes everything but
-/// the press itself. In hold mode the press is swallowed, the button's own
-/// state is polled for as long as it stays down, and the screen is locked from
-/// here if the press outlasts the chosen time. Nothing runs between presses.
+/// the press itself, and only a press the built-in button sent: the same event
+/// from a key on another keyboard reaches macOS untouched. In hold mode the
+/// press is swallowed, the button's own state is polled for as long as it
+/// stays down, and the screen is locked from here if the press outlasts the
+/// chosen time. Nothing runs between presses.
 final class TouchIDGuardService: ObservableObject {
     static let shared = TouchIDGuardService()
 
@@ -36,8 +39,20 @@ final class TouchIDGuardService: ObservableObject {
 
     var isEnabled: Bool {
         AppFeature.quitWindowProtection.isAvailable
+            && Self.builtInButtonID != nil
             && UserDefaults.standard.bool(forKey: DefaultsKey.touchIDGuardEnabled)
     }
+
+    /// The registry id of the built-in button's driver, nil on a Mac without
+    /// one. Read once: the driver lives as long as the machine is up.
+    static let builtInButtonID: UInt64? = {
+        let service = IOServiceGetMatchingService(
+            kIOMainPortDefault, IOServiceMatching(TouchIDGuardSupport.builtInButtonServiceClass))
+        guard service != 0 else { return nil }
+        defer { IOObjectRelease(service) }
+        var id: UInt64 = 0
+        return IORegistryEntryGetRegistryEntryID(service, &id) == KERN_SUCCESS ? id : nil
+    }()
 
     var mode: TouchIDGuardMode {
         TouchIDGuardSupport.modeFor(UserDefaults.standard.string(forKey: DefaultsKey.touchIDGuardMode))
@@ -146,7 +161,10 @@ final class TouchIDGuardService: ObservableObject {
               let nsEvent = NSEvent(cgEvent: event),
               nsEvent.type == .systemDefined,
               TouchIDGuardSupport.isPress(eventType: type.rawValue,
-                                          subtype: Int(nsEvent.subtype.rawValue))
+                                          subtype: Int(nsEvent.subtype.rawValue)),
+              let senderField = CGEventField(rawValue: TouchIDGuardSupport.senderIDFieldRawValue),
+              TouchIDGuardSupport.isBuiltInPress(senderID: event.getIntegerValueField(senderField),
+                                                 builtInButtonID: Self.builtInButtonID)
         else {
             return Unmanaged.passUnretained(event)
         }
@@ -169,7 +187,7 @@ final class TouchIDGuardService: ObservableObject {
             let remaining = max(0, hold - TouchIDGuardSupport.pressToEventDelayMilliseconds) / 1_000
             if UserDefaults.standard.bool(forKey: DefaultsKey.touchIDGuardShowFeedback) {
                 let strings = FeatureStrings.quitProtection(L10n.shared.language)
-                hud.show(title: strings.touchIDHoldHUD, detail: strings.touchIDCancelHint,
+                hud.show(title: strings.touchIDHoldHUD, detail: strings.releaseCancelHint,
                          holdDeadline: Date().addingTimeInterval(remaining))
             }
             watchPress(smc: smc, key: key, generation: advanceGeneration(), hold: hold)

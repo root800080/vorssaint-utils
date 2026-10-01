@@ -72,9 +72,14 @@ struct QuitProtectionSettings: View {
                             showFeedback: $closeShowFeedback)
 
             lockShortcutSection
-            touchIDSection
+            // A Mac without the built-in button has nothing for it to guard.
+            if TouchIDGuardService.builtInButtonID != nil {
+                touchIDSection
+            }
 
-            if (quitEnabled || closeEnabled || touchIDEnabled || lockEnabled) && !permissions.accessibility {
+            // The lock shortcut guard is a registered hotkey and needs no
+            // permission; the button guard and the quit guards are taps.
+            if (quitEnabled || closeEnabled || touchIDEnabled) && !permissions.accessibility {
                 Section(strings.accessibilityCaption) {
                     PermissionRow(kind: .accessibility)
                 }
@@ -98,15 +103,31 @@ struct QuitProtectionSettings: View {
         }
     }
 
+    /// Command-Q protection confirming with Control owns Control-Command-Q.
+    private var quitProtectionOwnsLockShortcut: Bool {
+        LockShortcutGuardSupport.quitProtectionOwnsShortcut(
+            quitEnabled: quitEnabled,
+            quitMode: QuitProtectionSupport.modeFor(quitMode),
+            extraModifier: QuitProtectionSupport.extraModifierFor(quitExtraModifier))
+    }
+
     @ViewBuilder
     private var lockShortcutSection: some View {
         let mode = LockShortcutGuardSupport.modeFor(lockMode)
         Section(LockShortcutGuardSupport.symbol) {
             Toggle(strings.enabled, isOn: $lockEnabled)
                 .onChange(of: lockEnabled) { _, _ in LockShortcutGuardService.shared.syncWithPreferences() }
+                .onChange(of: quitProtectionOwnsLockShortcut) { _, _ in
+                    LockShortcutGuardService.shared.syncWithPreferences()
+                }
             Text(strings.lockShortcutCaption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if quitProtectionOwnsLockShortcut {
+                Text(strings.lockShortcutOwnedByQuit)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             Picker(strings.mode, selection: $lockMode) {
                 Text(strings.hold).tag(LockShortcutGuardMode.hold.rawValue)

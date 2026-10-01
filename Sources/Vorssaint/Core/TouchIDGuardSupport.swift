@@ -24,6 +24,13 @@ enum TouchIDGuardSupport {
     static let systemDefinedEventTypeRawValue: UInt32 = 14
     static let pressSubtype = 16
 
+    /// The driver of the built-in Touch ID / Power button. A press carries
+    /// the registry id of the service that sent it in this event field, which
+    /// is how the built-in button is told from a key on another keyboard
+    /// that sends the same event.
+    static let builtInButtonServiceClass = "AppleM68Buttons"
+    static let senderIDFieldRawValue: UInt32 = 87
+
     /// SMC key that reads non-zero while the button is down and zero once it
     /// is released. The press event has no release counterpart, so this is
     /// how a hold is told from a tap.
@@ -49,6 +56,14 @@ enum TouchIDGuardSupport {
 
     static func isPress(eventType: UInt32, subtype: Int) -> Bool {
         eventType == systemDefinedEventTypeRawValue && subtype == pressSubtype
+    }
+
+    /// Only a press the built-in button sent is the guard's. A press with no
+    /// sender, or on a Mac where the button could not be found, is left to
+    /// macOS.
+    static func isBuiltInPress(senderID: Int64, builtInButtonID: UInt64?) -> Bool {
+        guard let builtInButtonID, senderID != 0 else { return false }
+        return UInt64(bitPattern: senderID) == builtInButtonID
     }
 
     /// The key is a little-endian integer: any non-zero byte means down.

@@ -11,8 +11,8 @@ enum LockShortcutGuardMode: String, CaseIterable, Identifiable {
 }
 
 /// Pure rules for guarding Control-Command-Q, the shortcut that locks the
-/// screen. Timing limits and the layout-aware key match are the ones Quit
-/// Protection already uses for Command-Q.
+/// screen. Timing limits are the ones Quit Protection already uses for
+/// Command-Q.
 enum LockShortcutGuardSupport {
     static let symbol = "⌃⌘Q"
 
@@ -26,24 +26,33 @@ enum LockShortcutGuardSupport {
         return value
     }
 
-    /// Exactly Control and Command with the Q key. Any other modifier means a
-    /// different shortcut, so a press with Option or Shift is left alone.
-    static func isLockShortcut(keyCharacter: String?,
-                               keyCode: Int64,
-                               commandLabel: String?,
-                               command: Bool,
-                               control: Bool,
-                               option: Bool,
-                               shift: Bool) -> Bool {
-        guard command, control, !option, !shift else { return false }
-        return QuitProtectionSupport.matchesKey(keyCharacter: keyCharacter,
-                                                keyCode: keyCode,
-                                                commandLabel: commandLabel,
-                                                shortcut: .quit)
+    /// The key the layout types Q with under Command, the table macOS answers
+    /// Command shortcuts from: keycode 0 on AZERTY, 7 on Dvorak, 12 on QWERTY
+    /// and on Russian, whose bare character there is "й". The US position is
+    /// used only while no layout can be read.
+    static func lockKeyCode(commandLabel: (Int64) -> String?) -> Int64 {
+        (0...127).first { commandLabel($0)?.lowercased() == QuitProtectionShortcut.quit.character }
+            ?? QuitProtectionShortcut.quit.fallbackKeyCode
     }
 
-    /// While a press is held, the confirmation only survives as long as both
-    /// modifiers do.
+    /// Command-Q protection with Control as its extra key confirms a quit with
+    /// Control-Command-Q, so that press belongs to it and this guard steps
+    /// aside.
+    static func quitProtectionOwnsShortcut(quitEnabled: Bool,
+                                           quitMode: QuitProtectionMode,
+                                           extraModifier: QuitProtectionExtraModifier) -> Bool {
+        quitEnabled && quitMode == .extraModifier && extraModifier == .control
+    }
+
+    /// A second press inside the interval confirms; one landing later starts
+    /// over.
+    static func isSecondPress(after elapsedMilliseconds: Double, intervalMilliseconds: Double) -> Bool {
+        elapsedMilliseconds >= 0
+            && elapsedMilliseconds <= QuitProtectionSupport.sanitizedDoublePressInterval(intervalMilliseconds)
+    }
+
+    /// When the hold time is up, it only locks while both modifiers are still
+    /// down.
     static func holdSurvivesFlagsChange(control: Bool, command: Bool) -> Bool {
         control && command
     }

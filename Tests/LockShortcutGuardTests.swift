@@ -7,32 +7,43 @@ enum LockShortcutGuardTests {
     static func run(_ suite: TestSuite) {
         typealias Guard = LockShortcutGuardSupport
 
-        func matches(_ character: String? = "q", keyCode: Int64 = 12, label: String? = nil,
-                     command: Bool = true, control: Bool = true,
-                     option: Bool = false, shift: Bool = false) -> Bool {
-            Guard.isLockShortcut(keyCharacter: character, keyCode: keyCode, commandLabel: label,
-                                 command: command, control: control, option: option, shift: shift)
-        }
+        let qwerty: [Int64: String] = [0: "a", 7: "x", 12: "q", 13: "w"]
+        let azerty: [Int64: String] = [0: "q", 12: "a", 13: "z"]
+        let dvorak: [Int64: String] = [7: "q", 12: "'"]
+        let russianCommand: [Int64: String] = [12: "q"]
+        suite.expect(Guard.lockKeyCode { qwerty[$0] } == 12, "QWERTY locks with the key at the US Q position")
+        suite.expect(Guard.lockKeyCode { azerty[$0] } == 0,
+                     "AZERTY registers the key that types Q, the one the Lock Screen menu item answers")
+        suite.expect(Guard.lockKeyCode { dvorak[$0] } == 7, "Dvorak registers its own Q key")
+        suite.expect(Guard.lockKeyCode { russianCommand[$0] } == 12,
+                     "the Command table decides, like Command-Q does on a Russian layout")
+        suite.expect(Guard.lockKeyCode { $0 == 12 ? "Q" : nil } == 12,
+                     "an uppercase label still counts as Q")
+        suite.expect(Guard.lockKeyCode { _ in nil } == 12, "the US position is used only while no layout can be read")
 
-        suite.expect(matches(), "Control-Command-Q is the lock shortcut")
-        suite.expect(!matches(control: false), "Command-Q alone belongs to Quit Protection")
-        suite.expect(!matches(command: false), "Control-Q alone is not the lock shortcut")
-        suite.expect(!matches(option: true), "Option changes it into another shortcut")
-        suite.expect(!matches(shift: true), "Shift changes it into another shortcut")
-        suite.expect(!matches("w", keyCode: 13), "another key with the same modifiers is left alone")
-        suite.expect(matches("й", keyCode: 12, label: "q"),
-                     "the layout's Command label decides, like Command-Q does on a Russian layout")
-        suite.expect(!matches("q", keyCode: 12, label: "w"),
-                     "the Command label wins over the bare character")
-        suite.expect(matches(nil, keyCode: 12), "the key position is used only while nothing can be read")
-        suite.expect(!matches(nil, keyCode: 13), "a different position is not the lock shortcut")
+        suite.expect(Guard.quitProtectionOwnsShortcut(quitEnabled: true, quitMode: .extraModifier, extraModifier: .control),
+                     "Command-Q protection confirming with Control owns Control-Command-Q")
+        suite.expect(!Guard.quitProtectionOwnsShortcut(quitEnabled: false, quitMode: .extraModifier, extraModifier: .control),
+                     "a Command-Q protection that is off owns nothing")
+        suite.expect(!Guard.quitProtectionOwnsShortcut(quitEnabled: true, quitMode: .extraModifier, extraModifier: .shift),
+                     "another extra key leaves Control-Command-Q to this guard")
+        suite.expect(!Guard.quitProtectionOwnsShortcut(quitEnabled: true, quitMode: .hold, extraModifier: .control),
+                     "a stored Control choice counts only while the extra key mode is picked")
+
+        suite.expect(Guard.isSecondPress(after: 300, intervalMilliseconds: 600), "a second press inside the interval confirms")
+        suite.expect(Guard.isSecondPress(after: 600, intervalMilliseconds: 600), "the interval's own end still confirms")
+        suite.expect(!Guard.isSecondPress(after: 601, intervalMilliseconds: 600), "a later press starts over")
+        suite.expect(!Guard.isSecondPress(after: -1, intervalMilliseconds: 600), "a clock that went back never confirms")
+        suite.expect(Guard.isSecondPress(after: 1_400, intervalMilliseconds: 9_000)
+                        && !Guard.isSecondPress(after: 1_600, intervalMilliseconds: 9_000),
+                     "an out-of-range interval is clamped to Quit Protection's limit")
 
         suite.expect(Guard.holdSurvivesFlagsChange(control: true, command: true),
-                     "a hold continues while both modifiers stay down")
+                     "a hold that reaches its time locks while both modifiers are down")
         suite.expect(!Guard.holdSurvivesFlagsChange(control: false, command: true),
-                     "letting go of Control cancels the hold")
+                     "a hold whose Control was let go of does not lock")
         suite.expect(!Guard.holdSurvivesFlagsChange(control: true, command: false),
-                     "letting go of Command cancels the hold")
+                     "a hold whose Command was let go of does not lock")
 
         suite.expect(Guard.modeFor(nil) == .hold, "the mode defaults to hold")
         suite.expect(Guard.modeFor("doublePress") == .doublePress, "double press is read back")

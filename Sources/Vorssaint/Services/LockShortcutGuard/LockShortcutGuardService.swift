@@ -2,38 +2,37 @@
 // Copyright (C) 2026 Vorssaint
 
 import AppKit
-import CoreGraphics
+import Carbon.HIToolbox
 import Combine
 
 /// Asks for a hold or a second press before Control-Command-Q locks the
-/// screen. macOS answers that shortcut before a tap sees it, so the system
-/// shortcut is switched off through the shared take-over for as long as the
-/// guard runs and given back on every exit path. The tap looks at key events
-/// only while Control and Command are both held, or while a press it owns is
-/// in flight, and passes everything else untouched.
+/// screen. The shortcut is the Lock Screen item of the Apple menu, not a
+/// WindowServer hotkey, so registering it as a hotkey is enough to hold it
+/// back: a registered hotkey is answered before the menu sees the key, and it
+/// keeps arriving while an app holds secure input, where a key tap is blind.
+/// The key registered is the one the current layout types Q with under
+/// Command, the same key the menu answers, and it follows layout changes.
 final class LockShortcutGuardService: ObservableObject {
     static let shared = LockShortcutGuardService()
 
     @Published private(set) var isRunning = false
 
-    private static let takeOverKey = "lockShortcutGuard"
-    private static let systemShortcut = GlobalShortcut(keyCode: 12, modifiers: [.control, .command])
+    /// 'VLCK'
+    private static let hotKeySignature: OSType = 0x564C_434B
 
-    private struct Pending {
-        let mode: LockShortcutGuardMode
-        let keyCode: Int64
-        let timestamp: UInt64
+    private enum Pending {
+        case hold
+        case doublePress
     }
 
-    private var tap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var hotKeyRef: EventHotKeyRef?
+    private var registeredKeyCode: Int64?
+    private var eventHandler: EventHandlerRef?
+    private var layoutObserver: NSObjectProtocol?
     private var holdTimer: Timer?
     private var pendingExpiry: DispatchWorkItem?
-    private var swallowExpiry: DispatchWorkItem?
     private var pending: Pending?
-    /// Set once a confirmed press locked the screen: the rest of that press
-    /// (repeats and the release) is swallowed so it cannot reach an app.
-    private var swallowKeyCode: Int64?
+    private var lastPress: Date?
     private let hud = QuitProtectionHUD()
 
     private init() {
@@ -47,6 +46,19 @@ final class LockShortcutGuardService: ObservableObject {
     var isEnabled: Bool {
         AppFeature.quitWindowProtection.isAvailable
             && UserDefaults.standard.bool(forKey: DefaultsKey.lockShortcutGuardEnabled)
+    }
+
+    /// Command-Q protection can take Control as its extra key, and then
+    /// Control-Command-Q is the press that confirms a quit. That choice wins:
+    /// this guard stays off, so the press has one owner whatever order the
+    /// two were started in.
+    static var quitProtectionOwnsShortcut: Bool {
+        let defaults = UserDefaults.standard
+        return LockShortcutGuardSupport.quitProtectionOwnsShortcut(
+            quitEnabled: defaults.bool(forKey: DefaultsKey.quitProtectionQuitEnabled),
+            quitMode: QuitProtectionSupport.modeFor(defaults.string(forKey: DefaultsKey.quitProtectionQuitMode)),
+            extraModifier: QuitProtectionSupport.extraModifierFor(
+                defaults.string(forKey: DefaultsKey.quitProtectionQuitExtraModifier)))
     }
 
     private var mode: LockShortcutGuardMode {
@@ -68,203 +80,124 @@ final class LockShortcutGuardService: ObservableObject {
     }
 
     func syncWithPreferences() {
-        guard SessionActivitySupport.tapShouldRun(
-            featureWanted: isEnabled,
-            accessibilityGranted: AXIsProcessTrusted(),
-            sessionIsActive: SessionActivity.shared.isActive
-        ) else {
+        guard isEnabled, !Self.quitProtectionOwnsShortcut, SessionActivity.shared.isActive else {
             stop()
             return
         }
         start()
     }
 
-    /// Releases the tap, the system shortcut and any press in flight, for
-    /// callers outside this type.
+    /// Lets go of the shortcut and any press in flight, for callers outside
+    /// this type.
     func suspend() { stop() }
 
     // MARK: Lifecycle
 
     private func start() {
-        guard !isRunning, installTap() else { return }
-        isRunning = true
-        // Only once the tap that handles the key exists: the system shortcut
-        // is never off without a handler behind it.
-        SystemShortcutTakeover.claim(Self.takeOverKey, shortcut: Self.systemShortcut)
-        SystemShortcutTakeover.setTakeOver(Self.takeOverKey, true)
+        ensureEventHandler()
+        if layoutObserver == nil {
+            layoutObserver = NotificationCenter.default.addObserver(
+                forName: GlobalShortcut.keyboardLayoutDidChange, object: nil, queue: .main) { [weak self] _ in
+                    guard let self, self.isRunning else { return }
+                    self.register()
+                }
+        }
+        register()
     }
 
     private func stop() {
         cancelPending()
-        clearSwallow()
-        // Give the shortcut back before the handler goes away.
-        SystemShortcutTakeover.setTakeOver(Self.takeOverKey, false)
-        SystemShortcutTakeover.release(Self.takeOverKey)
-        if let tap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap)
+        unregister()
+        if let layoutObserver {
+            NotificationCenter.default.removeObserver(layoutObserver)
         }
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        }
-        tap = nil
-        runLoopSource = nil
+        layoutObserver = nil
         isRunning = false
     }
 
-    private func installTap() -> Bool {
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-            | CGEventMask(1 << CGEventType.keyUp.rawValue)
-            | CGEventMask(1 << CGEventType.flagsChanged.rawValue)
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: { _, type, event, userInfo in
-                guard let userInfo else { return Unmanaged.passUnretained(event) }
-                let service = Unmanaged<LockShortcutGuardService>
-                    .fromOpaque(userInfo).takeUnretainedValue()
-                return service.handle(type: type, event: event)
-            },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else {
-            return false
+    /// Registers the key the layout types Q with under Command, again after
+    /// a layout change moves it.
+    private func register() {
+        let keyCode = LockShortcutGuardSupport.lockKeyCode { code in
+            GlobalShortcut.layoutKeyLabel(for: code, usesCommand: true)
         }
-        self.tap = tap
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        if hotKeyRef != nil, registeredKeyCode == keyCode { return }
+        unregister()
+        var ref: EventHotKeyRef?
+        let status = RegisterEventHotKey(UInt32(keyCode), UInt32(controlKey | cmdKey),
+                                         EventHotKeyID(signature: Self.hotKeySignature, id: 1),
+                                         GetEventDispatcherTarget(), 0, &ref)
+        guard status == noErr, let ref else {
+            isRunning = false
+            return
+        }
+        hotKeyRef = ref
+        registeredKeyCode = keyCode
+        isRunning = true
     }
 
-    // MARK: Event routing
+    private func unregister() {
+        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+        hotKeyRef = nil
+        registeredKeyCode = nil
+    }
 
-    private var hasPressInFlight: Bool { pending != nil || swallowKeyCode != nil }
-
-    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            // The release that ends a swallow may be among the events missed.
-            cancelPending()
-            clearSwallow()
-            let shouldRearm = SessionActivitySupport.tapShouldRun(
-                featureWanted: isEnabled,
-                accessibilityGranted: AXIsProcessTrusted(),
-                sessionIsActive: SessionActivity.shared.isActive
-            )
-            if shouldRearm, let tap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.stop()
-                    self?.syncWithPreferences()
-                }
+    private func ensureEventHandler() {
+        guard eventHandler == nil else { return }
+        var specs = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
+        ]
+        InstallEventHandler(GetEventDispatcherTarget(), { _, event, userData -> OSStatus in
+            guard let event, let userData else { return OSStatus(eventNotHandledErr) }
+            var id = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject),
+                              EventParamType(typeEventHotKeyID), nil,
+                              MemoryLayout<EventHotKeyID>.size, nil, &id)
+            guard id.signature == LockShortcutGuardService.hotKeySignature else {
+                return OSStatus(eventNotHandledErr)
             }
-            return Unmanaged.passUnretained(event)
-        }
-        guard isRunning else { return Unmanaged.passUnretained(event) }
-
-        switch type {
-        case .keyDown: return handleKeyDown(event)
-        case .keyUp: return handleKeyUp(event)
-        case .flagsChanged:
-            handleFlagsChanged(event)
-            return Unmanaged.passUnretained(event)
-        default:
-            return Unmanaged.passUnretained(event)
-        }
+            let service = Unmanaged<LockShortcutGuardService>.fromOpaque(userData).takeUnretainedValue()
+            let pressed = GetEventKind(event) == UInt32(kEventHotKeyPressed)
+            DispatchQueue.main.async {
+                pressed ? service.handlePress() : service.handleRelease()
+            }
+            return noErr
+        }, specs.count, &specs, Unmanaged.passUnretained(self).toOpaque(), &eventHandler)
     }
 
-    private func handleKeyDown(_ event: CGEvent) -> Unmanaged<CGEvent>? {
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-        let flags = event.flags
+    // MARK: Presses
 
-        if keyCode == 53, pending != nil {
-            cancelPending()
-            return nil
-        }
-        // Ordinary typing stops here: reading which key this is costs an
-        // NSEvent and a layout lookup on a tap that sees every keystroke.
-        guard (flags.contains(.maskControl) && flags.contains(.maskCommand)) || hasPressInFlight else {
-            return Unmanaged.passUnretained(event)
-        }
-        if let swallowKeyCode, keyCode == swallowKeyCode {
-            return nil
-        }
-        let matches = LockShortcutGuardSupport.isLockShortcut(
-            keyCharacter: NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased(),
-            keyCode: keyCode,
-            commandLabel: GlobalShortcut.layoutKeyLabel(for: keyCode, usesCommand: true),
-            command: flags.contains(.maskCommand),
-            control: flags.contains(.maskControl),
-            option: flags.contains(.maskAlternate),
-            shift: flags.contains(.maskShift))
-        guard matches else {
-            // Another key ends a confirmation that was waiting for this one.
-            if pending != nil { cancelPending() }
-            return Unmanaged.passUnretained(event)
-        }
-        if isRepeat { return nil }
-
+    private func handlePress() {
+        guard isRunning else { return }
+        let now = Date()
         switch mode {
         case .hold:
-            begin(.hold, keyCode: keyCode, event: event)
-            return nil
+            begin(.hold)
         case .doublePress:
-            if let pending, pending.mode == .doublePress,
-               QuitProtectionSupport.isWithinDoublePressInterval(
-                firstTimestamp: pending.timestamp,
-                secondTimestamp: event.timestamp,
+            if pending == .doublePress, let lastPress,
+               LockShortcutGuardSupport.isSecondPress(
+                after: now.timeIntervalSince(lastPress) * 1_000,
                 intervalMilliseconds: doublePressIntervalMilliseconds) {
                 cancelPending()
-                confirm(keyCode: keyCode)
-                return nil
+                ScreenLock.lockNow()
+                return
             }
-            begin(.doublePress, keyCode: keyCode, event: event)
-            return nil
+            lastPress = now
+            begin(.doublePress)
         }
     }
 
-    private func handleKeyUp(_ event: CGEvent) -> Unmanaged<CGEvent>? {
-        // A release only matters to a press this service is holding. Control
-        // and Command cannot be required: the release of Q may well arrive
-        // after they were let go.
-        guard hasPressInFlight else { return Unmanaged.passUnretained(event) }
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        if let swallowKeyCode, keyCode == swallowKeyCode {
-            clearSwallow()
-            return nil
-        }
-        guard let pending, keyCode == pending.keyCode else {
-            return Unmanaged.passUnretained(event)
-        }
-        switch pending.mode {
-        case .hold:
-            cancelPending()
-        case .doublePress:
-            break
-        }
-        return nil
+    /// Only a hold cares about the release: letting go of Q ends it.
+    private func handleRelease() {
+        if pending == .hold { cancelPending() }
     }
 
-    private func handleFlagsChanged(_ event: CGEvent) {
-        guard let pending, pending.mode == .hold else { return }
-        let flags = event.flags
-        if !LockShortcutGuardSupport.holdSurvivesFlagsChange(control: flags.contains(.maskControl),
-                                                             command: flags.contains(.maskCommand)) {
-            cancelPending()
-        }
-    }
-
-    // MARK: Confirmation
-
-    private func begin(_ mode: LockShortcutGuardMode, keyCode: Int64, event: CGEvent) {
+    private func begin(_ kind: Pending) {
         cancelPending()
-        pending = Pending(mode: mode, keyCode: keyCode, timestamp: event.timestamp)
+        pending = kind
         let strings = FeatureStrings.quitProtection(L10n.shared.language)
-        switch mode {
+        switch kind {
         case .hold:
             let duration = holdDurationMilliseconds / 1_000
             holdTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
@@ -272,7 +205,7 @@ final class LockShortcutGuardService: ObservableObject {
             }
             if showsFeedback {
                 hud.show(title: String(format: strings.holdLockHUDFormat, LockShortcutGuardSupport.symbol),
-                         detail: strings.cancelHint,
+                         detail: strings.releaseCancelHint,
                          holdDeadline: Date().addingTimeInterval(duration))
             }
         case .doublePress:
@@ -282,26 +215,20 @@ final class LockShortcutGuardService: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + (interval + 100) / 1_000, execute: expiry)
             if showsFeedback {
                 hud.show(title: String(format: strings.doubleLockHUDFormat, LockShortcutGuardSupport.symbol),
-                         detail: strings.cancelHint)
+                         detail: "")
             }
         }
     }
 
+    /// The release of Q is the only key event a hotkey reports, so the
+    /// modifiers are read when the time is up: a hold whose Control or
+    /// Command was let go of first does not lock.
     private func completeHold() {
-        guard let pending, pending.mode == .hold else { return }
-        let keyCode = pending.keyCode
+        guard pending == .hold else { return }
         cancelPending()
-        confirm(keyCode: keyCode)
-    }
-
-    private func confirm(keyCode: Int64) {
-        swallowKeyCode = keyCode
-        // A release that never reaches this tap, because the screen is already
-        // locked, must not leave the key swallowed.
-        swallowExpiry?.cancel()
-        let expiry = DispatchWorkItem { [weak self] in self?.clearSwallow() }
-        swallowExpiry = expiry
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: expiry)
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        guard LockShortcutGuardSupport.holdSurvivesFlagsChange(control: flags.contains(.maskControl),
+                                                               command: flags.contains(.maskCommand)) else { return }
         ScreenLock.lockNow()
     }
 
@@ -312,11 +239,5 @@ final class LockShortcutGuardService: ObservableObject {
         pendingExpiry = nil
         pending = nil
         hud.hide()
-    }
-
-    private func clearSwallow() {
-        swallowExpiry?.cancel()
-        swallowExpiry = nil
-        swallowKeyCode = nil
     }
 }

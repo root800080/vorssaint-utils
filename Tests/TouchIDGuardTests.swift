@@ -12,6 +12,16 @@ enum TouchIDGuardTests {
         suite.expect(!Guard.isPress(eventType: 14, subtype: 7), "pointer buttons are not the press")
         suite.expect(!Guard.isPress(eventType: 10, subtype: 16), "a key event is never the press")
 
+        let button: UInt64 = 0x1_0000_0323
+        suite.expect(Guard.isBuiltInPress(senderID: Int64(bitPattern: button), builtInButtonID: button),
+                     "a press the built-in button sent is the guard's")
+        suite.expect(!Guard.isBuiltInPress(senderID: 0x1_0000_0B5F, builtInButtonID: button),
+                     "the same event from another keyboard is left to macOS")
+        suite.expect(!Guard.isBuiltInPress(senderID: 0, builtInButtonID: button),
+                     "a press with no sender is left to macOS")
+        suite.expect(!Guard.isBuiltInPress(senderID: Int64(bitPattern: button), builtInButtonID: nil),
+                     "without a built-in button nothing is the guard's")
+
         suite.expect(!Guard.isDown([0, 0, 0, 0]), "a zero state is released")
         suite.expect(Guard.isDown([1, 0, 0, 0]), "a non-zero state is down")
         suite.expect(!Guard.isDown([]), "an empty read is not down")
