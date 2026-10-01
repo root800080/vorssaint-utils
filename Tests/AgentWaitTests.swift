@@ -67,6 +67,12 @@ enum AgentWaitTests {
         suite.expect(AgentWaitSupport.newlyWaitingSessions(current: [], previous: [a, b]).isEmpty,
                      "a stop that clears every session produces no new waits")
 
+        let renamed = AgentWaitingSession(id: a.id, name: "renamed")
+        suite.expect(AgentWaitSupport.current(a, in: [renamed, b]) == renamed,
+                     "a wait renamed during the hold is found by pid and sent under its current name")
+        suite.expect(AgentWaitSupport.current(a, in: [b]) == nil,
+                     "a wait that is no longer on the list sends nothing")
+
         let now = Date()
         suite.expect(!AgentWaitSupport.waitedLongEnough(since: now, now: now.addingTimeInterval(1), minimum: 3)
                      && AgentWaitSupport.waitedLongEnough(since: now, now: now.addingTimeInterval(3), minimum: 3),

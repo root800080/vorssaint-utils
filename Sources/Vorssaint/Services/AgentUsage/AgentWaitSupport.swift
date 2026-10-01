@@ -76,6 +76,14 @@ enum AgentWaitSupport {
         return current.filter { !previousIDs.contains($0.id) }
     }
 
+    /// The entry the current list holds for the same session, matched by pid
+    /// alone. A wait is keyed by pid, so the name it carries can change
+    /// during the hold, when the record gets a name or a different one; the
+    /// notice goes out with the name the list has now.
+    static func current(_ session: AgentWaitingSession, in list: [AgentWaitingSession]) -> AgentWaitingSession? {
+        list.first { $0.id == session.id }
+    }
+
     /// Whether a session that has been waiting since `since` has now held
     /// long enough to be worth a notice.
     static func waitedLongEnough(since: Date, now: Date, minimum: TimeInterval = minimumNoticeWait) -> Bool {

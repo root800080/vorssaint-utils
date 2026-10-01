@@ -141,11 +141,12 @@ final class AgentWaitWatcher: ObservableObject {
     private func scheduleNoticeCheck(for session: AgentWaitingSession, generation: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + AgentWaitSupport.minimumNoticeWait) { [weak self] in
             guard let self, self.running, self.generation == generation,
-                  let since = self.waitingSince[session.id], self.waiting.contains(session),
+                  let since = self.waitingSince[session.id],
+                  let current = AgentWaitSupport.current(session, in: self.waiting),
                   AgentWaitSupport.waitedLongEnough(since: since, now: Date()),
                   KillProcessService.startTime(for: session.id) != nil
             else { return }
-            self.newlyWaiting.send(session)
+            self.newlyWaiting.send(current)
         }
     }
 }
