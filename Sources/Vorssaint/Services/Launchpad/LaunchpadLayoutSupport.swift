@@ -30,6 +30,12 @@ struct LaunchpadLayout: Codable, Equatable {
     var items: [LaunchpadItem]
     private var version = 1
 
+    /// Written out because the one Swift generates is private as long as a
+    /// stored property is, which older toolchains enforce.
+    init(items: [LaunchpadItem]) {
+        self.items = items
+    }
+
     static let initial = LaunchpadLayout(items: [])
 }
 
