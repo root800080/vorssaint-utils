@@ -145,6 +145,12 @@ enum NotchAgentSupport {
             ?? mostSpent { AgentLimitSupport.binding($0, now: now) }
     }
 
+    /// Whether a limit reading starts with the length of the limit it is
+    /// about, "5h 21%" or "7d 79%".
+    static func showsLimitLength(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: DefaultsKey.notchAgentsLimitLength)
+    }
+
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)
     }
@@ -191,6 +197,7 @@ enum NotchAgentSupport {
     /// the person chose, or the time elapsed while that one is unknown.
     static func stripReading(_ snapshot: AgentUsageSnapshot, readout: NotchAgentReadout,
                              display: NotchAgentLimitDisplay, focus: NotchAgentLimitFocus = .mostUsed,
+                             showsLimitLength: Bool, locale: Locale,
                              now: Date) -> String {
         let live = snapshot.live
         func elapsed() -> String { AgentFormat.clock(now.timeIntervalSince(live.map(\.started).min() ?? now)) }
@@ -206,7 +213,12 @@ enum NotchAgentSupport {
         case .limit:
             guard let provider = AgentProvider.allCases.first(where: { provider in live.contains { $0.provider == provider } }),
                   let window = focusedLimit(snapshot.limits[provider], focus: focus, now: now) else { return elapsed() }
-            return AgentFormat.percent(display == .used ? window.usedFraction : window.remainingFraction)
+            let percent = AgentFormat.percent(display == .used ? window.usedFraction : window.remainingFraction,
+                                              locale: locale)
+            // The limit's own length rather than a fixed initial, which would
+            // read as English only. A limit with no length shows no prefix.
+            guard showsLimitLength, let minutes = window.minutes, minutes > 0 else { return percent }
+            return AgentFormat.duration(TimeInterval(minutes) * 60, locale: locale, units: 1) + " " + percent
         }
     }
 

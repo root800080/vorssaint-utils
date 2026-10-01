@@ -14,6 +14,7 @@ struct NotchAgentsSettingsControls: View {
     @AppStorage(DefaultsKey.notchAgentsHiddenCards) private var hiddenCards = ""
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var limitDisplay = NotchAgentLimitDisplay.remaining.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitFocus) private var limitFocus = NotchAgentLimitFocus.mostUsed.rawValue
+    @AppStorage(DefaultsKey.notchAgentsLimitLength) private var limitLength = false
     @AppStorage(DefaultsKey.notchAgentsLiveActivity) private var liveActivity = true
     @AppStorage(DefaultsKey.notchAgentsReadout) private var readout = NotchAgentReadout.elapsed.rawValue
     @AppStorage(DefaultsKey.notchAgentsFinishAlert) private var finishAlert = true
@@ -90,9 +91,14 @@ struct NotchAgentsSettingsControls: View {
                     }
                 }
                 .padding(.leading, settingsRowTextInset)
+                if readout == NotchAgentReadout.limit.rawValue {
+                    switchRow("timer", text.showLimitLength, isOn: $limitLength)
+                        .padding(.leading, settingsRowTextInset)
+                }
                 NotchAgentStripSample(readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
                                       display: NotchAgentLimitDisplay(rawValue: limitDisplay) ?? .remaining,
                                       focus: NotchAgentLimitFocus(rawValue: limitFocus) ?? .mostUsed,
+                                      showsLimitLength: limitLength,
                                       provider: claude || !codex ? .claude : .codex)
                     .padding(.leading, settingsRowTextInset)
             }
@@ -265,8 +271,10 @@ private struct NotchAgentStripSample: View {
     let readout: NotchAgentReadout
     let display: NotchAgentLimitDisplay
     let focus: NotchAgentLimitFocus
+    let showsLimitLength: Bool
     let provider: AgentProvider
     @ObservedObject private var usage = AgentUsageService.shared
+    @ObservedObject private var l10n = L10n.shared
     private static let camera: CGFloat = 64
 
     var body: some View {
@@ -299,7 +307,9 @@ private struct NotchAgentStripSample: View {
                                               tokens: AgentTokens(input: 1_180_000, cacheWrite: 0, cacheRead: 0, output: 20_000),
                                               cost: 4.56)]
         }
-        return NotchAgentSupport.stripReading(snapshot, readout: readout, display: display, focus: focus, now: now)
+        return NotchAgentSupport.stripReading(snapshot, readout: readout, display: display, focus: focus,
+                                              showsLimitLength: showsLimitLength,
+                                              locale: l10n.language.formattingLocale(), now: now)
     }
 }
 
