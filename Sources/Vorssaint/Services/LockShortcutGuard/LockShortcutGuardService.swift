@@ -19,6 +19,7 @@ final class LockShortcutGuardService: ObservableObject {
 
     /// 'VLCK'
     private static let hotKeySignature: OSType = 0x564C_434B
+    private static let modifierWatchInterval = 0.05
 
     private enum Pending {
         case hold
@@ -30,6 +31,7 @@ final class LockShortcutGuardService: ObservableObject {
     private var eventHandler: EventHandlerRef?
     private var layoutObserver: NSObjectProtocol?
     private var holdTimer: Timer?
+    private var modifierWatch: Timer?
     private var pendingExpiry: DispatchWorkItem?
     private var pending: Pending?
     private var lastPress: Date?
@@ -203,6 +205,14 @@ final class LockShortcutGuardService: ObservableObject {
             holdTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
                 self?.completeHold()
             }
+            // A hotkey reports the release of Q and nothing about Control or
+            // Command, so they are read for as long as the hold lasts, and
+            // only then: letting go of either ends it at once.
+            modifierWatch = Timer.scheduledTimer(withTimeInterval: Self.modifierWatchInterval,
+                                                 repeats: true) { [weak self] _ in
+                guard let self, !self.modifiersAreDown else { return }
+                self.cancelPending()
+            }
             if showsFeedback {
                 hud.show(title: String(format: strings.holdLockHUDFormat, LockShortcutGuardSupport.symbol),
                          detail: strings.releaseCancelHint,
@@ -220,21 +230,26 @@ final class LockShortcutGuardService: ObservableObject {
         }
     }
 
-    /// The release of Q is the only key event a hotkey reports, so the
-    /// modifiers are read when the time is up: a hold whose Control or
-    /// Command was let go of first does not lock.
+    /// Read once more when the time is up, in case the modifiers went up
+    /// between two looks of the watch.
     private func completeHold() {
         guard pending == .hold else { return }
         cancelPending()
-        let flags = CGEventSource.flagsState(.combinedSessionState)
-        guard LockShortcutGuardSupport.holdSurvivesFlagsChange(control: flags.contains(.maskControl),
-                                                               command: flags.contains(.maskCommand)) else { return }
+        guard modifiersAreDown else { return }
         ScreenLock.lockNow()
+    }
+
+    private var modifiersAreDown: Bool {
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        return LockShortcutGuardSupport.holdSurvivesFlagsChange(control: flags.contains(.maskControl),
+                                                                command: flags.contains(.maskCommand))
     }
 
     private func cancelPending() {
         holdTimer?.invalidate()
         holdTimer = nil
+        modifierWatch?.invalidate()
+        modifierWatch = nil
         pendingExpiry?.cancel()
         pendingExpiry = nil
         pending = nil

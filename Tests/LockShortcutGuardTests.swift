@@ -39,11 +39,11 @@ enum LockShortcutGuardTests {
                      "an out-of-range interval is clamped to Quit Protection's limit")
 
         suite.expect(Guard.holdSurvivesFlagsChange(control: true, command: true),
-                     "a hold that reaches its time locks while both modifiers are down")
+                     "a hold goes on, and locks at its time, while both modifiers are down")
         suite.expect(!Guard.holdSurvivesFlagsChange(control: false, command: true),
-                     "a hold whose Control was let go of does not lock")
+                     "letting go of Control ends the hold")
         suite.expect(!Guard.holdSurvivesFlagsChange(control: true, command: false),
-                     "a hold whose Command was let go of does not lock")
+                     "letting go of Command ends the hold")
 
         suite.expect(Guard.modeFor(nil) == .hold, "the mode defaults to hold")
         suite.expect(Guard.modeFor("doublePress") == .doublePress, "double press is read back")

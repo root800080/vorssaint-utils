@@ -51,8 +51,7 @@ enum LockShortcutGuardSupport {
             && elapsedMilliseconds <= QuitProtectionSupport.sanitizedDoublePressInterval(intervalMilliseconds)
     }
 
-    /// When the hold time is up, it only locks while both modifiers are still
-    /// down.
+    /// A hold lasts only while both modifiers stay down.
     static func holdSurvivesFlagsChange(control: Bool, command: Bool) -> Bool {
         control && command
     }
